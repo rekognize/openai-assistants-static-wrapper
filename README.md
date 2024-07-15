@@ -23,7 +23,7 @@ This project is a static web application that wraps around the OpenAI Assistants
 3. **Access the Web Application**
    - Visit the following URL, replacing `YOUR_PROJECT_KEY` with your actual project key (e.g., `sk-project-name-ABCDXYZ`):
      ```
-     https://rekognize.github.io/openai-assistants-static-wrapper/index.html#YOUR_PROJECT_KEY
+     https://rekognize.github.io/openai-assistants-static-wrapper/chat/#YOUR_PROJECT_KEY
      ```
 
 ## Contributing
