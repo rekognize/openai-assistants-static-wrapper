@@ -12,7 +12,24 @@ This project is a static web application that wraps around the OpenAI Assistants
 
 ## Usage
 
-1. Create an OpenAI project and get the API key
-2. Go to the playground and create assistants associated to that project (https://platform.openai.com/playground/assistants)
-3. Visit the page. Append the project key to the URL as a hash parameter
+1. **Create an OpenAI Project**
+   - Sign up or log in to your OpenAI account.
+   - Go to your [account settings](https://platform.openai.com/settings/), create a new project and obtain the API key.
 
+2. **Create Assistants**
+   - Go to the OpenAI Playground and create assistants associated with your project.
+   - URL: [OpenAI Playground - Assistants](https://platform.openai.com/playground/assistants)
+
+3. **Access the Web Application**
+   - Visit the following URL, replacing `YOUR_PROJECT_KEY` with your actual project key (e.g., `sk-project-name-ABCDXYZ`):
+     ```
+     https://rekognize.github.io/openai-assistants-static-wrapper/index.html#YOUR_PROJECT_KEY
+     ```
+
+## Contributing
+
+Contributions are welcome! Please fork the repository, make your changes, and submit a pull request.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
