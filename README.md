@@ -8,7 +8,7 @@ This project is a static web application that wraps around the OpenAI Assistants
 - Display conversation threads
 - Submit questions and receive responses
 - Upload files to be associated with a thread
-- Download conversation history as a DOCX file
+- Download conversation history as a DOCX or a markdown file
 
 ## Usage
 
