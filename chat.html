@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Assistants</title>
+
+    <link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <link href="https://fastly.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        body {
+            height: 100vh;
+            margin: 0;
+        }
+        #assistants-list {
+            overflow-y: auto;
+        }
+        #conversation {
+            height: calc(100vh - 168px); /* Adjust based on navbar height */
+            overflow-y: auto;
+        }
+        #question-form {
+            display: flex;
+        }
+        #question {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        #loading-upload {
+            display: none;
+            margin: 20px 0;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script src='https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js'></script>
+
+</head>
+<body>
+
+
+<nav class="navbar bg-body-tertiary">
+    <div class="container">
+        <a class="navbar-brand" href="#">
+            <span class="text-muted">AI Assistants</span>
+        </a>
+
+        <div class="d-flex">
+
+            <div class="btn-group" role="group" aria-label="Basic example">
+                <button class="btn btn-outline-secondary" onclick="downloadMessagesDocx()">
+                    <i class="bi bi-filetype-docx"></i>
+                </button>
+                <button class="btn btn-outline-secondary" onclick="downloadMessagesMd()">
+                    <i class="bi bi-filetype-md"></i>
+                </button>
+            </div>
+
+
+            <button class="btn btn-outline-danger ms-2" onclick="resetThread()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+
+        </div>
+
+    </div>
+</nav>
+
+
+<div id="content" class="container mt-3">
+
+    <div class="row">
+
+        <div class="col-4">
+
+            <div id="assistants-list" class="list-group">
+                <div id="assistants-container" class="list-group">
+                    Loading assistants...
+                </div>
+            </div>
+
+            <ul id="file-list" class="list-group mt-3">
+                <li class="list-group-item list-group-item-light">Data files</li>
+            </ul>
+
+            <div id="loading-upload">
+                <span class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Uploading...</span>
+                </span> Uploading files...
+            </div>
+
+            <div class="list-group-item mt-3">
+                <input type="file" id="file-upload" class="form-control" multiple>
+                <button id="file-upload-btn" class="btn btn-secondary mt-2" onclick="uploadFiles()">Upload</button>
+            </div>
+
+        </div>
+
+
+        <div class="col-8">
+
+            <div id="conversation">
+                Loading conversation...
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<nav class="navbar fixed-bottom bg-body-white">
+    <div class="container">
+        <div id="question-form" class="offset-4 w-100 my-2 ps-2">
+            <textarea id="question" class="form-control" rows="2" placeholder="Type your question here..."></textarea>
+            <button id="submit-btn" class="btn btn-secondary" onclick="submitQuestion()">Submit</button>
+        </div>
+    </div>
+</nav>
+
+
+    <script>
+        let selectedAssistantId = null;
+        let selectedAssistantName = null;
+        let assistantDictionary = {};
+        let threadId = sessionStorage.getItem('threadId');
+
+        // Function to get the project key from the URL hash parameter
+        function getProjectKeyFromURL() {
+            const hash = window.location.hash;
+            if (hash.startsWith('#')) {
+                return hash.substring(1);
+            }
+            return null;
+        }
+
+        // Function to fetch the list of assistants
+        async function fetchAssistants() {
+            const projectKey = getProjectKeyFromURL();
+            if (!projectKey) {
+                document.getElementById('assistants-container').innerText = 'Project key not found in URL.';
+                return;
+            }
+
+            const url = 'https://api.openai.com/v1/assistants';
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+
+                if (!data.data) {
+                    throw new Error('Assistants data is not defined');
+                }
+
+                displayAssistants(data.data);
+
+                return data.data;  // Return the assistants data
+
+            } catch (error) {
+                console.error('Error fetching assistants:', error);
+                document.getElementById('assistants-list').innerText = `Failed to fetch assistants: ${error.message}`;
+            }
+        }
+
+        // Function to display the list of assistants
+        function displayAssistants(assistants) {
+            const containerElement = document.getElementById('assistants-container');
+            containerElement.innerHTML = '';
+
+            if (assistants.length === 0) {
+                containerElement.innerText = 'No assistants found.';
+                return;
+            }
+
+            assistants.reverse().forEach((assistant, index) => {
+                assistantDictionary[assistant.id] = assistant.name;
+
+                const assistantElement = document.createElement('a');
+                assistantElement.className = 'list-group-item list-group-item-light list-group-item-action';
+                assistantElement.innerHTML = `
+                    <strong class="d-block">${assistant.name}</strong>
+                    <span class="small">${assistant.instructions}</span>
+                `;
+                assistantElement.onclick = () => selectAssistant(assistant.id, assistant.name, assistantElement);
+                containerElement.appendChild(assistantElement);
+
+                // Select the first assistant by default
+                if (index === 0) {
+                    selectAssistant(assistant.id, assistant.name, assistantElement);
+                }
+            });
+        }
+
+        // Function to select an assistant
+        function selectAssistant(assistantId, assistantName, element) {
+            selectedAssistantId = assistantId;
+            selectedAssistantName = assistantName;
+
+            // Set the selected assistant element as active
+            const assistantElements = document.querySelectorAll('.list-group-item');
+            assistantElements.forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            console.log(`Selected Assistant ID: ${assistantId}`);
+        }
+
+        // Function to scroll to the bottom of the conversation
+        function scrollToBottom() {
+            const conversationElement = document.getElementById('conversation');
+            conversationElement.scrollTop = conversationElement.scrollHeight;
+        }
+
+        // Function to submit a question
+        async function submitQuestion() {
+            const projectKey = getProjectKeyFromURL();
+            const questionText = document.getElementById('question').value;
+
+            if (!selectedAssistantId || !questionText) {
+                alert('Please select an assistant and enter a question.');
+                return;
+            }
+
+            displayMessage('user', questionText);
+
+            await addQuestionToThread(projectKey, questionText);
+
+            document.getElementById('question').value = '';
+
+            const assistantResponseElement = renderAssistantMessageElement(selectedAssistantName, '');
+            document.getElementById('conversation').appendChild(assistantResponseElement);
+
+            const responseTextElement = assistantResponseElement.querySelector('div.card-body');
+            await createRun(projectKey, responseTextElement);
+        }
+
+        function renderUserMessageElement(text) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message alert alert-light mb-3';
+            messageElement.innerHTML = `<strong>${text}</strong>`;
+            return messageElement;
+        }
+
+        function renderAssistantMessageElement(assistantName, text) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message card mb-3';
+            messageElement.innerHTML = `
+                <div class="card-header"><strong>${assistantName}</strong></div>
+                <div class="card-body pb-0">${marked.parse(text)}</div>
+            `;
+            return messageElement;
+        }
+
+        // Function to prepend a message when displaying the initial thread
+        function prependMessage(sender, text) {
+            const conversationElement = document.getElementById('conversation');
+            let messageElement;
+            if (sender === 'user') {
+                messageElement = renderUserMessageElement(text);
+            } else {
+                messageElement = renderAssistantMessageElement(sender, text);
+            }
+            conversationElement.insertBefore(messageElement, conversationElement.firstChild);
+            scrollToBottom();
+        }
+
+        // Function to display a message in the conversation
+        function displayMessage(sender, text) {
+            const conversationElement = document.getElementById('conversation');
+            let messageElement;
+            if (sender === 'user') {
+                messageElement = renderUserMessageElement(text);
+            } else {
+                messageElement = renderAssistantMessageElement(sender, text);
+            }
+            conversationElement.appendChild(messageElement);
+            scrollToBottom();
+        }
+
+        // Function to create a new thread
+        async function createThread(projectKey) {
+            const url = 'https://api.openai.com/v1/threads';
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                console.log('Thread created:', data);
+                return data.id;
+            } catch (error) {
+                console.error('Error creating thread:', error);
+                alert('Failed to create thread.');
+            }
+        }
+
+        async function fetchThreadFiles(projectKey, fileIds) {
+            const files = [];
+            for (const fileId of fileIds) {
+                const url = `https://api.openai.com/v1/files/${fileId}`;
+                const options = {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${projectKey}`,
+                        'Content-Type': 'application/json',
+                        'OpenAI-Beta': 'assistants=v2'
+                    }
+                };
+
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) {
+                        const fileData = await response.json();
+                        files.push(fileData);
+                        displayFile(fileData);
+                    } else {
+                        console.error('Error fetching file:', fileId);
+                    }
+                } catch (error) {
+                    console.error('Error fetching file:', fileId, error);
+                }
+            }
+            console.log('Fetched files:', files);
+        }
+
+        // Function to validate an existing thread
+        async function validateThread(projectKey, threadId) {
+            const url = `https://api.openai.com/v1/threads/${threadId}`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    console.log('Thread is valid:', threadId);
+
+                    const data = await response.json();
+                    console.log('Thread data:', data);
+
+                    // Fetch files if any
+                    const fileIds = data.tool_resources.code_interpreter.file_ids;
+                    if (fileIds.length > 0) {
+                        await fetchThreadFiles(projectKey, fileIds);
+                    }
+
+                    return true;
+                } else {
+                    console.log('Thread is not valid:', threadId);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error validating thread:', error);
+                return false;
+            }
+        }
+
+        // Function to add a question to the thread
+        async function addQuestionToThread(projectKey, questionText) {
+            const url = `https://api.openai.com/v1/threads/${threadId}/messages`;
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                },
+                body: JSON.stringify({ role: 'user', content: questionText })
+            };
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                console.log('Question added to thread:', data);
+                return data;
+            } catch (error) {
+                console.error('Error adding question to thread:', error);
+                alert('Failed to add question to thread.');
+            }
+        }
+
+        // Function to create a run and get the response
+        async function createRun(projectKey, responseTextElement) {
+            const runUrl = `https://api.openai.com/v1/threads/${threadId}/runs`;
+            const runOptions = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                },
+                body: JSON.stringify({
+                    assistant_id: selectedAssistantId,
+                    stream: true
+                })
+            };
+
+            try {
+                const runResponse = await fetch(runUrl, runOptions);
+                const decoder = new TextDecoder('utf-8');
+                let fullContent = '';
+
+                for await (const chunk of runResponse.body) {
+                    const content = decoder.decode(chunk, { stream: true });
+                    const lines = content.toString().split('\n').filter(line => line.trim() !== '');
+                    const event = lines[0].replace(/^event: /, '');
+                    let data;
+
+                    console.log(event);
+                    try {
+                        console.log(JSON.parse(lines[1].replace(/^data: /, '')));
+                    } catch {
+                        console.log('Cannot parse');
+                    }
+
+                    if (event === 'thread.message.delta') {
+                        data = JSON.parse(lines[1].replace(/^data: /, ''));
+                        const deltaContent = data.delta.content[0];
+                        if (deltaContent.type === 'text') {
+                            let delta = deltaContent.text.value;
+                            fullContent += delta;
+                            responseTextElement.innerHTML = marked.parse(fullContent);
+                        }
+                    }
+
+                    scrollToBottom();
+
+                }
+            } catch (error) {
+                console.error('Error creating run:', error);
+                alert('Failed to get response from assistant.');
+                displayMessage(selectedAssistantName, 'An error occurred while fetching the response.');
+            }
+        }
+
+        // Function to fetch and display messages from an existing thread
+        async function fetchThreadMessages(projectKey, threadId) {
+            const conversationElement = document.getElementById('conversation');
+            conversationElement.innerHTML = 'Loading conversation...';
+
+            const url = `https://api.openai.com/v1/threads/${threadId}/messages`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                console.log('Thread messages:', data);
+
+                conversationElement.innerHTML = '';
+
+                if (data.data && data.data.length > 0) {
+                    const messages = data.data;
+                    for (const message of messages) {
+                        const sender = message.role === 'user' ? 'user' : assistantDictionary[message.assistant_id];
+                        let content = message.content[0].text.value;
+
+                        const annotations = message.content[0].text.annotations;
+                        for (let index = 0; index < annotations.length; index++) {
+                            const annotation = annotations[index];
+                            if (annotation.file_citation) {
+                                const fileCitation = annotation.file_citation;
+                                try {
+                                    const citedFile = await fetchFileData(projectKey, fileCitation.file_id);
+                                    const fileInfo = `(${citedFile.filename})`;
+                                    content = content.replace(annotation.text, ` [${index + 1}] ${fileInfo}`);
+                                } catch (error) {
+                                    console.error(`File with id ${fileCitation.file_id} not found:`, error);
+                                    content = content.replace(annotation.text, ' (Reference file is not available)');
+                                }
+                            } else if (annotation.file_path) {
+                                const filePath = annotation.file_path;
+                                const downloadLink = `download-url/${filePath.file_id}`; // TODO Add download function and link
+                                content = content.replace(annotation.text, downloadLink);
+                            }
+                        }
+
+                        prependMessage(sender, content);
+                    }
+                } else {
+                    // Handle the case when there are no messages
+                    console.log('no messages');
+                    conversationElement.innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching thread messages:', error);
+                conversationElement.innerHTML = '<p>Failed to load conversation. Please try again later.</p>';
+            }
+        }
+        // Function to initialize the session and create a thread if needed
+        async function initializeSession() {
+            const projectKey = getProjectKeyFromURL();
+            const assistants = await fetchAssistants();  // Wait for assistants to be fetched
+
+            if (assistants) {
+                // Populate the assistant dictionary
+                assistants.forEach(assistant => {
+                    assistantDictionary[assistant.id] = assistant.name;
+                });
+
+                if (!threadId) {
+                    // Clear the conversation area and show a message
+                    document.getElementById('conversation').innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+
+                    threadId = await createThread(projectKey);
+                    sessionStorage.setItem('threadId', threadId);
+                } else {
+                    const isValidThread = await validateThread(projectKey, threadId);
+                    if (!isValidThread) {
+                        // Clear the conversation area and show a message
+                        document.getElementById('conversation').innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+
+                        threadId = await createThread(projectKey);
+                        sessionStorage.setItem('threadId', threadId);
+                    } else {
+                        await fetchThreadMessages(projectKey, threadId);  // Fetch messages only after assistants are loaded
+                    }
+                }
+            }
+        }
+
+        // Initialize the session and fetch assistants when the page loads
+        window.addEventListener('load', async () => {
+            await initializeSession();
+            scrollToBottom();
+        });
+
+        // Function to reset the thread
+        async function resetThread() {
+            const projectKey = getProjectKeyFromURL();
+
+            // Clear the conversation area and show a message
+            document.getElementById('conversation').innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+
+            // Create a new thread
+            threadId = await createThread(projectKey);
+            sessionStorage.setItem('threadId', threadId);
+
+            // Clear any stored messages and reinitialize the session
+            await initializeSession();
+        }
+
+        // Function to download all messages as a markdown file
+        function downloadMessagesMd() {
+            const conversationElement = document.getElementById('conversation');
+            const messages = conversationElement.querySelectorAll('.message');
+            let markdownContent = '';
+
+            messages.forEach(message => {
+                const sender = message.querySelector('strong').innerText;
+                const content = message.innerHTML.replace(/<\/?[^>]+(>|$)/g, ""); // Remove HTML tags
+                markdownContent += `**${sender}**\n${content}\n\n`;
+            });
+
+            const blob = new Blob([markdownContent], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'conversation.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Function to download all messages as a DOCX file
+        async function downloadMessagesDocx() {
+            const { Document, Packer, Paragraph, TextRun } = window.docx;
+
+            const conversationElement = document.getElementById('conversation');
+            const messages = conversationElement.querySelectorAll('.message');
+
+            const docChildren = [];
+
+            messages.forEach(message => {
+                const sender = message.querySelector('strong').innerText;
+                const content = message.querySelector('.card-body') ? message.querySelector('.card-body').innerText : message.innerText;  // Get the inner text of the message
+
+                const senderRun = new TextRun({
+                    text: sender,
+                    bold: true,
+                });
+
+                const contentRun = new TextRun({
+                    text: content,
+                });
+
+                const paragraph = new Paragraph({
+                    children: [senderRun, new TextRun("\n"), contentRun, new TextRun("\n\n")],
+                });
+
+                docChildren.push(paragraph);
+            });
+
+            const doc = new Document({
+                sections: [
+                    {
+                        properties: {},
+                        children: docChildren,
+                    },
+                ],
+            });
+
+            Packer.toBlob(doc).then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'conversation.docx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }).catch(err => {
+                console.error('Error creating DOCX file:', err);
+            });
+        }
+
+
+        // File uploads
+
+        function displayFile(file) {
+            const fileList = document.getElementById('file-list');
+            const fileItem = document.createElement('li');
+            fileItem.className = 'list-group-item';
+            fileItem.innerText = `${file.filename} (${file.bytes} bytes)`;
+            fileList.appendChild(fileItem);
+        }
+
+        async function uploadFiles() {
+            const projectKey = getProjectKeyFromURL();
+            const submitBtn = document.getElementById('submit-btn');
+            const loadingUpload = document.getElementById('loading-upload');
+            const fileUploadBtn = document.getElementById('file-upload-btn');
+            const fileInput = document.getElementById('file-upload');
+            const files = fileInput.files;
+
+            if (!files.length) {
+                alert('Please select a file to upload.');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            fileUploadBtn.disabled = true;
+            loadingUpload.style.display = 'block';
+
+            const fileIds = [];
+            for (const file of files) {
+                const fileId = await uploadFile(projectKey, file);
+                if (fileId) {
+                    fileIds.push(fileId);
+                }
+            }
+
+            if (fileIds.length > 0) {
+                await addFilesToThread(projectKey, threadId, fileIds);
+
+                submitBtn.disabled = false;
+                fileUploadBtn.disabled = false;
+                loadingUpload.style.display = 'none';
+                fileInput.value = '';
+
+                // Display the newly uploaded files
+                for (const fileId of fileIds) {
+                    const fileData = await fetchFileData(projectKey, fileId);
+                    if (fileData) {
+                        displayFile(fileData);
+                    }
+                }
+            }
+        }
+
+        async function uploadFile(projectKey, file) {
+            const url = 'https://api.openai.com/v1/files';
+            const formData = new FormData();
+            formData.append('purpose', 'assistants');
+            formData.append('file', file);
+
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`
+                },
+                body: formData
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('File uploaded:', data);
+                    return data.id;
+                } else {
+                    console.error('Error uploading file:', file.name);
+                    alert(`Failed to upload file: ${file.name}`);
+                }
+            } catch (error) {
+                console.error('Error uploading file:', file.name, error);
+                alert(`Failed to upload file: ${file.name}`);
+            }
+        }
+
+        async function fetchFileData(projectKey, fileId) {
+            const url = `https://api.openai.com/v1/files/${fileId}`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    return await response.json();
+                } else {
+                    console.error('Error fetching file:', fileId);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching file:', fileId, error);
+                return null;
+            }
+        }
+
+        async function getCurrentFileIds(projectKey, threadId) {
+            const url = `https://api.openai.com/v1/threads/${threadId}`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.tool_resources.code_interpreter.file_ids || [];
+                } else {
+                    console.error('Error fetching thread:', threadId);
+                    return [];
+                }
+            } catch (error) {
+                console.error('Error fetching thread:', threadId, error);
+                return [];
+            }
+        }
+
+        async function addFilesToThread(projectKey, threadId, fileIds) {
+            // Get the current file IDs
+            const currentFileIds = await getCurrentFileIds(projectKey, threadId);
+
+            // Combine current and new file IDs
+            const combinedFileIds = currentFileIds.concat(fileIds);
+
+            const url = `https://api.openai.com/v1/threads/${threadId}`;
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                },
+                body: JSON.stringify({
+                    tool_resources: {
+                        code_interpreter: {
+                            file_ids: combinedFileIds
+                        }
+                    }
+                })
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Thread updated with files:', data);
+                    alert('Files successfully uploaded and added to the thread.');
+                } else {
+                    console.error('Error updating thread with files.');
+                    alert('Failed to add files to the thread.');
+                }
+            } catch (error) {
+                console.error('Error updating thread with files:', error);
+                alert('Failed to add files to the thread.');
+            }
+        }
+
+
+    </script>
+</body>
+</html>
