@@ -213,11 +213,13 @@
             assistants.reverse().forEach((assistant, index) => {
                 assistantDictionary[assistant.id] = assistant.name;
 
+                const description = assistant.description ? `<span class="small">${assistant.description}</span>` : '';
+
                 const assistantElement = document.createElement('a');
                 assistantElement.className = 'list-group-item list-group-item-light list-group-item-action assistant-item';
                 assistantElement.innerHTML = `
                     <strong class="d-block">${assistant.name}</strong>
-                    <span class="small">${assistant.instructions}</span>
+                    ${description}
                 `;
                 assistantElement.onclick = () => selectAssistant(assistant.id, assistant.name, assistantElement);
                 containerElement.appendChild(assistantElement);
