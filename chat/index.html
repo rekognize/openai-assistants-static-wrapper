@@ -32,6 +32,14 @@
             display: none;
             margin: 20px 0;
         }
+        #loading-conversation {
+            text-align: center;
+            margin: 40px;
+        }
+        #no-messages {
+            text-align: center;
+            margin: 40px;
+        }
         .assistant-item {
             cursor: pointer;
         }
@@ -96,7 +104,11 @@
 
             <div id="assistants-list" class="list-group">
                 <div id="assistants-container" class="list-group">
-                    Loading assistants...
+                    <div id="loading-assistants">
+                        <span class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </span> Loading assistants...
+                    </div>
                 </div>
             </div>
 
@@ -121,7 +133,13 @@
         <div class="col-8">
 
             <div id="conversation">
-                Loading conversation...
+
+                <div id="loading-conversation">
+                    <span class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </span> Loading conversation...
+                </div>
+
             </div>
 
         </div>
@@ -169,6 +187,7 @@
             const projectKey = getProjectKeyFromURL();
             if (!projectKey) {
                 document.getElementById('assistants-container').innerText = 'Project key not found in URL.';
+                document.getElementById('conversation').innerText = '';
                 return;
             }
 
@@ -486,7 +505,13 @@
         // Function to fetch and display messages from an existing thread
         async function fetchThreadMessages(projectKey, threadId) {
             const conversationElement = document.getElementById('conversation');
-            conversationElement.innerHTML = 'Loading conversation...';
+            conversationElement.innerHTML = `
+                <div id="loading-conversation">
+                    <span class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </span> Loading conversation...
+                </div>
+            `;
 
             const url = `https://api.openai.com/v1/threads/${threadId}/messages`;
             const options = {
@@ -536,7 +561,12 @@
                 } else {
                     // Handle the case when there are no messages
                     console.log('no messages');
-                    conversationElement.innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+                    conversationElement.innerHTML = `
+                    <div id="no-messages">
+                        <p>No messages in this thread yet.</p>
+                        <p>Start the conversation by asking a question.</p>
+                    </div>
+                `;
                 }
             } catch (error) {
                 console.error('Error fetching thread messages:', error);
