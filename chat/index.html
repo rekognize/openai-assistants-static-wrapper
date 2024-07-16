@@ -32,6 +32,9 @@
             display: none;
             margin: 20px 0;
         }
+        .assistant-item {
+            cursor: pointer;
+        }
         .user-message {
             width: 70%;
             margin-left: auto;
@@ -211,7 +214,7 @@
                 assistantDictionary[assistant.id] = assistant.name;
 
                 const assistantElement = document.createElement('a');
-                assistantElement.className = 'list-group-item list-group-item-light list-group-item-action';
+                assistantElement.className = 'list-group-item list-group-item-light list-group-item-action assistant-item';
                 assistantElement.innerHTML = `
                     <strong class="d-block">${assistant.name}</strong>
                     <span class="small">${assistant.instructions}</span>
