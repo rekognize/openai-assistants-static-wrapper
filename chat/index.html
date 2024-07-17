@@ -52,6 +52,10 @@
             width: 100%;
             margin-right: auto;
         }
+        .list-group-item.active {
+            background-color: #052c65;
+            border-color: #052c65;
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -235,7 +239,7 @@
                 const description = assistant.description ? `<span class="small">${assistant.description}</span>` : '';
 
                 const assistantElement = document.createElement('a');
-                assistantElement.className = 'list-group-item list-group-item-light list-group-item-action assistant-item';
+                assistantElement.className = 'list-group-item list-group-item-action assistant-item';
                 assistantElement.innerHTML = `
                     <strong class="d-block">${assistant.name}</strong>
                     ${description}
