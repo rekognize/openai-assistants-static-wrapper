@@ -209,6 +209,19 @@
             var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
                 return new bootstrap.Popover(popoverTriggerEl);
             });
+
+            document.getElementById('question').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    if (e.shiftKey) {
+                        // Allow new line if Shift key is pressed
+                        return;
+                    } else {
+                        e.preventDefault();
+                        // Submit the question
+                        submitQuestion();
+                    }
+                }
+            });
         });
 
         let selectedAssistantId = null;
@@ -337,8 +350,9 @@
         // Function to submit a question
         async function submitQuestion() {
             const projectKey = getProjectKeyFromURL();
-            const questionText = document.getElementById('question').value;
+            const questionText = document.getElementById('question').value.trim();
 
+            // Check if the textarea is not empty before submitting
             if (!selectedAssistantId || !questionText) {
                 alert('Please select an assistant and enter a question.');
                 return;
