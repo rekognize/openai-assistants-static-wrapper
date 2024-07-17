@@ -228,6 +228,12 @@
         let selectedAssistantName = null;
         let assistantDictionary = {};
         let threadId = sessionStorage.getItem('threadId');
+        const noMessagesDiv = `
+                    <div id="no-messages">
+                        <p>No messages in this thread yet.</p>
+                        <p>Start the conversation by asking a question.</p>
+                    </div>
+                `;
 
         // Function to get the project key from the URL hash parameter
         function getProjectKeyFromURL() {
@@ -640,12 +646,7 @@
                 } else {
                     // Handle the case when there are no messages
                     console.log('no messages');
-                    conversationElement.innerHTML = `
-                    <div id="no-messages">
-                        <p>No messages in this thread yet.</p>
-                        <p>Start the conversation by asking a question.</p>
-                    </div>
-                `;
+                    conversationElement.innerHTML = noMessagesDiv;
                 }
             } catch (error) {
                 console.error('Error fetching thread messages:', error);
@@ -665,7 +666,7 @@
 
                 if (!threadId) {
                     // Clear the conversation area and show a message
-                    document.getElementById('conversation').innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+                    document.getElementById('conversation').innerHTML = noMessagesDiv;
 
                     threadId = await createThread(projectKey);
                     sessionStorage.setItem('threadId', threadId);
@@ -673,7 +674,7 @@
                     const isValidThread = await validateThread(projectKey, threadId);
                     if (!isValidThread) {
                         // Clear the conversation area and show a message
-                        document.getElementById('conversation').innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
+                        document.getElementById('conversation').innerHTML = noMessagesDiv;
 
                         threadId = await createThread(projectKey);
                         sessionStorage.setItem('threadId', threadId);
@@ -695,8 +696,7 @@
             const projectKey = getProjectKeyFromURL();
 
             // Clear the conversation area and show a message
-            document.getElementById('conversation').innerHTML = '<p>No messages in this thread yet. Start the conversation by asking a question.</p>';
-
+            document.getElementById('conversation').innerHTML = noMessagesDiv;
             // Create a new thread
             threadId = await createThread(projectKey);
             sessionStorage.setItem('threadId', threadId);
