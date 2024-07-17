@@ -84,7 +84,7 @@
         .user-message {
             width: 70%;
             margin-left: auto;
-            background-color: #e9f7ef;
+            background-color: #cfe2ff;
             border-color: transparent;
         }
         .assistant-message {
@@ -371,17 +371,27 @@
                 noMessagesDiv.remove();
             }
 
+            // Disable submit button and add spinner
+            const submitButton = document.getElementById('submit-btn');
+            submitButton.disabled = true;
+                submitButton.innerHTML = 'Submit <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>';
+
             displayMessage('user', questionText);
 
             await addQuestionToThread(projectKey, questionText);
 
             document.getElementById('question').value = '';
 
+            // Create an empty assistant response element
             const assistantResponseElement = renderAssistantMessageElement(selectedAssistantName, '');
             document.getElementById('conversation').appendChild(assistantResponseElement);
 
             const responseTextElement = assistantResponseElement.querySelector('div.card-body');
             await createRun(projectKey, responseTextElement);
+
+            // Enable submit button and remove spinner
+            submitButton.disabled = false;
+            submitButton.innerHTML = 'Submit';
         }
 
         function renderUserMessageElement(text) {
@@ -591,6 +601,9 @@
                 console.error('Error creating run:', error);
                 alert('Failed to get response from assistant.');
                 displayMessage(selectedAssistantName, 'An error occurred while fetching the response.');
+
+                document.getElementById('submit-btn').disabled = false;
+                document.getElementById('submit-btn').innerHTML = 'Submit';
             }
         }
 
@@ -862,6 +875,10 @@
                 } else {
                     console.error('Error uploading file:', file.name);
                     alert(`Failed to upload file: ${file.name}`);
+
+                    document.getElementById('submit-btn').disabled = false;
+                    document.getElementById('file-upload-btn').disabled = false;
+                    document.getElementById('loading-upload').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error uploading file:', file.name, error);
