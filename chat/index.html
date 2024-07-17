@@ -364,6 +364,12 @@
                 return;
             }
 
+            // Remove the no-messages div if it exists
+            const noMessagesDiv = document.getElementById('no-messages');
+            if (noMessagesDiv) {
+                noMessagesDiv.remove();
+            }
+
             displayMessage('user', questionText);
 
             await addQuestionToThread(projectKey, questionText);
