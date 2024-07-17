@@ -9,6 +9,7 @@
     <link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <link href="https://fastly.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" integrity="sha512-WvVX1YO12zmsvTpUQV8s7ZU98DnkaAokcciMZJfnNWyNzm7//QRV61t4aEr0WdIa4pe854QHLTV302vH92FSMw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
         body {
@@ -28,10 +29,6 @@
         #question {
             flex-grow: 1;
             margin-right: 10px;
-        }
-        #loading-upload {
-            display: none;
-            margin: 20px 0;
         }
         #loading-conversation {
             text-align: center;
@@ -95,12 +92,24 @@
             background-color: #052c65;
             border-color: #052c65;
         }
+        .dropzone {
+            border: 2px dashed #007bff;
+            border-radius: 5px;
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+        }
+        .dropzone .dz-message {
+            font-weight: bold;
+            color: #007bff;
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js'></script>
     <script src="https://unpkg.com/@popperjs/core@2"></script>
     <script src="https://unpkg.com/tippy.js@6"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js" integrity="sha512-oQq8uth41D+gIH/NJvSJvVB85MFk1eWpMK6glnkg6I7EdMqC1XVkW7RxLheXwmFdG03qScCM7gKS/Cx3FYt7Tg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 </head>
 <body>
@@ -160,16 +169,7 @@
                 <li class="list-group-item list-group-item-light">Data files</li>
             </ul>
 
-            <div id="loading-upload">
-                <span class="spinner-border spinner-border-sm" role="status">
-                    <span class="visually-hidden">Uploading...</span>
-                </span> Uploading files...
-            </div>
-
-            <div class="list-group-item mt-3">
-                <input type="file" id="file-upload" class="form-control" multiple>
-                <button id="file-upload-btn" class="btn btn-secondary mt-2" onclick="uploadFiles()">Upload</button>
-            </div>
+            <div id="dropzone" class="dropzone mt-3"></div>
 
         </div>
 
@@ -809,82 +809,32 @@
             fileList.appendChild(fileItem);
         }
 
-        async function uploadFiles() {
-            const projectKey = getProjectKeyFromURL();
-            const submitBtn = document.getElementById('submit-btn');
-            const loadingUpload = document.getElementById('loading-upload');
-            const fileUploadBtn = document.getElementById('file-upload-btn');
-            const fileInput = document.getElementById('file-upload');
-            const files = fileInput.files;
+        Dropzone.autoDiscover = false; // Prevent Dropzone from auto discovering this element
 
-            if (!files.length) {
-                alert('Please select a file to upload.');
-                return;
+        const dropzone = new Dropzone('#dropzone', {
+            url: 'https://api.openai.com/v1/files',
+            paramName: 'file', // The name that will be used to transfer the file
+            maxFilesize: 512, // Maximum file size in MB
+            headers: {
+                'Authorization': `Bearer ${getProjectKeyFromURL()}`,
+            },
+            init: function() {
+                this.on('sending', function(file, xhr, formData) {
+                    formData.append('purpose', 'assistants');
+                });
+                this.on('success', function(file, response) {
+                    console.log('File uploaded successfully:', response);
+                    // Handle the response and add the file to the thread
+                    const fileId = response.id;
+                    addFilesToThread(getProjectKeyFromURL(), threadId, [fileId]);
+                    displayFile(response);
+                });
+                this.on('error', function(file, errorMessage) {
+                    console.error('Error uploading file:', errorMessage);
+                    alert('Failed to upload file.');
+                });
             }
-
-            submitBtn.disabled = true;
-            fileUploadBtn.disabled = true;
-            loadingUpload.style.display = 'block';
-
-            const fileIds = [];
-            for (const file of files) {
-                const fileId = await uploadFile(projectKey, file);
-                if (fileId) {
-                    fileIds.push(fileId);
-                }
-            }
-
-            if (fileIds.length > 0) {
-                await addFilesToThread(projectKey, threadId, fileIds);
-
-                submitBtn.disabled = false;
-                fileUploadBtn.disabled = false;
-                loadingUpload.style.display = 'none';
-                fileInput.value = '';
-
-                // Display the newly uploaded files
-                for (const fileId of fileIds) {
-                    const fileData = await fetchFileData(projectKey, fileId);
-                    if (fileData) {
-                        displayFile(fileData);
-                    }
-                }
-            }
-        }
-
-        async function uploadFile(projectKey, file) {
-            const url = 'https://api.openai.com/v1/files';
-            const formData = new FormData();
-            formData.append('purpose', 'assistants');
-            formData.append('file', file);
-
-            const options = {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${projectKey}`
-                },
-                body: formData
-            };
-
-            try {
-                const response = await fetch(url, options);
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('File uploaded:', data);
-                    return data.id;
-                } else {
-                    console.error('Error uploading file:', file.name);
-                    alert(`Failed to upload file: ${file.name}`);
-
-                    document.getElementById('submit-btn').disabled = false;
-                    document.getElementById('file-upload-btn').disabled = false;
-                    document.getElementById('loading-upload').style.display = 'none';
-                }
-            } catch (error) {
-                console.error('Error uploading file:', file.name, error);
-                alert(`Failed to upload file: ${file.name}`);
-            }
-        }
+        });
 
         async function fetchFileData(projectKey, fileId) {
             const url = `https://api.openai.com/v1/files/${fileId}`;
