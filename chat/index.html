@@ -95,14 +95,14 @@
             border-color: #052c65;
         }
         .dropzone {
-            border: 2px dashed #007bff;
-            border-radius: 5px;
+            border: 2px dotted #cfe2ff;
+            border-radius: 8px;
             background: #f8f9fa;
             padding: 20px;
             text-align: center;
         }
         .dropzone .dz-message {
-            font-weight: bold;
+            font-weight: normal;
             color: #007bff;
         }
     </style>
@@ -168,10 +168,12 @@
             </div>
 
             <ul id="file-list" class="list-group mt-3">
-                <li class="list-group-item list-group-item-light">Data files</li>
+                <li class="list-group-item list-group-item-light text-dark">Data files</li>
             </ul>
 
-            <div id="dropzone" class="dropzone mt-3"></div>
+            <div id="dropzone" class="dropzone mt-3">
+                <div class="dz-message">Drop your data files here to upload.</div>
+            </div>
 
         </div>
 
@@ -305,6 +307,7 @@
 
                 const assistantElement = document.createElement('a');
                 assistantElement.className = 'list-group-item list-group-item-action assistant-item';
+                assistantElement.dataset.id = assistant.id;
                 assistantElement.innerHTML = `
                     <div>
                         <strong class="d-block">${assistant.name}</strong>
@@ -320,7 +323,7 @@
 
                 // Initialize Tippy.js tooltips
                 tippy(assistantElement.querySelector('.assistant-info-icon'), {
-                    content: assistantElement.querySelector('.assistant-details').innerHTML,
+                    content: getTooltipContent(assistant.id, assistantElement.querySelector('.assistant-details').innerHTML),
                     allowHTML: true,
                     interactive: true,
                     placement: 'auto',
@@ -337,6 +340,11 @@
             containerElement.style.overflow = 'visible';
         }
 
+        function getTooltipContent(assistantId, details) {
+            const isSelected = assistantId === selectedAssistantId ? '<p class="text-success"><i>Selected as your assistant.</i></p>' : '<p class="text-secondary"><i>Not selected. Click to select as your assistant.</i></p>';
+            return `${isSelected}${details}`;
+        }
+
         // Function to select an assistant
         function selectAssistant(assistantId, assistantName, element) {
             selectedAssistantId = assistantId;
@@ -346,6 +354,14 @@
             const assistantElements = document.querySelectorAll('.list-group-item');
             assistantElements.forEach(el => el.classList.remove('active'));
             element.classList.add('active');
+
+            // Update tooltips to reflect the selected status
+            assistantElements.forEach(el => {
+                const assistantInfoIcon = el.querySelector('.assistant-info-icon');
+                if (assistantInfoIcon && assistantInfoIcon._tippy) {
+                    assistantInfoIcon._tippy.setContent(getTooltipContent(el.dataset.id, el.querySelector('.assistant-details').innerHTML));
+                }
+            });
 
             console.log(`Selected Assistant ID: ${assistantId}`);
         }
@@ -616,7 +632,7 @@
                 <div id="loading-conversation">
                     <span class="spinner-border spinner-border-sm" role="status">
                         <span class="visually-hidden">Loading...</span>
-                    </span> Loading conversation...
+                    </span> Fetching messages...
                 </div>
             `;
 
@@ -807,7 +823,7 @@
             const fileList = document.getElementById('file-list');
             const fileItem = document.createElement('li');
             fileItem.className = 'list-group-item';
-            fileItem.innerText = `${file.filename} (${file.bytes} bytes)`;
+            fileItem.innerHTML = `<small>${file.filename} (${file.bytes} bytes)<\small>`;
             fileList.appendChild(fileItem);
         }
 
@@ -817,6 +833,7 @@
             url: 'https://api.openai.com/v1/files',
             paramName: 'file', // The name that will be used to transfer the file
             maxFilesize: 512, // Maximum file size in MB
+            maxFiles: 20, // Maximum number of files
             headers: {
                 'Authorization': `Bearer ${getProjectKeyFromURL()}`,
             },
