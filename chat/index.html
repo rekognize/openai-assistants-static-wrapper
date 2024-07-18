@@ -159,7 +159,7 @@
 
             <div id="assistants-list" class="list-group">
                 <div id="assistants-container" class="list-group">
-                    <div id="loading-assistants">
+                    <div id="loading-assistants" class="text-center">
                         <span class="spinner-border spinner-border-sm" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </span> Loading assistants...
@@ -169,6 +169,11 @@
 
             <ul id="file-list" class="list-group mt-3">
                 <li class="list-group-item list-group-item-light text-dark">Data files</li>
+                <li id="loading-files" class="list-group-item text-center" style="display: none;">
+                    <span class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </span> Loading files...
+                </li>
             </ul>
 
             <div id="dropzone" class="dropzone mt-3">
@@ -480,6 +485,8 @@
 
         async function fetchThreadFiles(projectKey, fileIds) {
             const files = [];
+            const fileListElement = document.getElementById('file-list');
+
             for (const fileId of fileIds) {
                 const url = `https://api.openai.com/v1/files/${fileId}`;
                 const options = {
@@ -504,7 +511,49 @@
                     console.error('Error fetching file:', fileId, error);
                 }
             }
+
             console.log('Fetched files:', files);
+
+            if (files.length === 0) {
+                fileListElement.innerHTML += '<li class="list-group-item text-muted">You have no files.</li>';
+            }
+        }
+
+        async function listThreadFiles(projectKey, threadId) {
+            const loadingFilesElement = document.getElementById('loading-files');
+            loadingFilesElement.innerHTML
+            loadingFilesElement.style.display = 'block'; // Show loading-files
+
+            const url = `https://api.openai.com/v1/threads/${threadId}`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    const data = await response.json();
+                    const fileIds = data.tool_resources.code_interpreter.file_ids;
+                    if (fileIds.length > 0) {
+                        await fetchThreadFiles(projectKey, fileIds);
+                    } else {
+                        loadingFilesElement.innerHTML = 'You have no files.';
+                    }
+                } else {
+                    console.error('Error fetching thread files:', threadId);
+                    loadingFilesElement.innerHTML = 'Failed to load files.';
+                }
+            } catch (error) {
+                console.error('Error fetching thread files:', error);
+                loadingFilesElement.innerHTML = 'Failed to load files.';
+            }  finally {
+                loadingFilesElement.style.display = 'none'; // Hide loading-files after fetching files
+            }
         }
 
         // Function to validate an existing thread
@@ -523,16 +572,6 @@
                 const response = await fetch(url, options);
                 if (response.ok) {
                     console.log('Thread is valid:', threadId);
-
-                    const data = await response.json();
-                    console.log('Thread data:', data);
-
-                    // Fetch files if any
-                    const fileIds = data.tool_resources.code_interpreter.file_ids;
-                    if (fileIds.length > 0) {
-                        await fetchThreadFiles(projectKey, fileIds);
-                    }
-
                     return true;
                 } else {
                     console.log('Thread is not valid:', threadId);
@@ -718,6 +757,7 @@
                         sessionStorage.setItem('threadId', threadId);
                     } else {
                         await fetchThreadMessages(projectKey, threadId);  // Fetch messages only after assistants are loaded
+                        await listThreadFiles(projectKey, threadId);  // List thread files separately
                     }
                 }
             }
