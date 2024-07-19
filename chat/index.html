@@ -350,7 +350,7 @@
             // Disable submit button and add spinner
             const submitButton = document.getElementById('submit-btn');
             submitButton.disabled = true;
-                submitButton.innerHTML = 'Submit <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>';
+            submitButton.innerHTML = 'Submit <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>';
 
             displayMessage('user', questionText);
 
@@ -362,7 +362,8 @@
             const assistantResponseElement = renderAssistantMessageElement(selectedAssistantName, '');
             document.getElementById('conversation').appendChild(assistantResponseElement);
 
-            const responseTextElement = assistantResponseElement.querySelector('div.card-body');
+            // Select the response text element within the assistant message element
+            const responseTextElement = assistantResponseElement.querySelector('.message-body');
             await createRun(projectKey, responseTextElement);
 
             // Enable submit button and remove spinner
