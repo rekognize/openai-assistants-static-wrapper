@@ -8,7 +8,6 @@
 
     <link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <link href="https://fastly.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" integrity="sha512-WvVX1YO12zmsvTpUQV8s7ZU98DnkaAokcciMZJfnNWyNzm7//QRV61t4aEr0WdIa4pe854QHLTV302vH92FSMw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
@@ -49,35 +48,6 @@
             margin-left: 10px;
             cursor: pointer;
         }
-        .assistant-details {
-            display: none;
-        }
-        /* Add a higher z-index for assistant tooltips */
-        .tippy-box {
-            z-index: 9999;
-        }
-        /* Style the assistant tooltip */
-        .tippy-box[data-theme~='light'] {
-            background-color: white;
-            color: black;
-            border: 1px solid #ccc;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            padding-top: 16px;
-        }
-        /* Customize the arrow to be white */
-        .tippy-box[data-theme~='light'][data-placement^='top'] > .tippy-arrow::before {
-            border-top-color: white;
-        }
-        .tippy-box[data-theme~='light'][data-placement^='bottom'] > .tippy-arrow::before {
-            border-bottom-color: white;
-        }
-        .tippy-box[data-theme~='light'][data-placement^='left'] > .tippy-arrow::before {
-            border-left-color: white;
-        }
-        .tippy-box[data-theme~='light'][data-placement^='right'] > .tippy-arrow::before {
-            border-right-color: white;
-        }
         .list-group-item.active {
             background-color: #052c65;
             border-color: #052c65;
@@ -97,8 +67,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js'></script>
-    <script src="https://unpkg.com/@popperjs/core@2"></script>
-    <script src="https://unpkg.com/tippy.js@6"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js" integrity="sha512-oQq8uth41D+gIH/NJvSJvVB85MFk1eWpMK6glnkg6I7EdMqC1XVkW7RxLheXwmFdG03qScCM7gKS/Cx3FYt7Tg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 </head>
@@ -115,12 +83,12 @@
 
             <div class="btn-group" role="group" aria-label="Basic example">
                 <button class="btn btn-outline-secondary" onclick="downloadMessagesDocx()"
-                       tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                       tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover" data-bs-placement="auto"
                        data-bs-content="Click to download thread messages as a word file.">
                     <i class="bi bi-filetype-docx"></i>
                 </button>
                 <button class="btn btn-outline-secondary" onclick="downloadMessagesMd()"
-                       tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                       tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover" data-bs-placement="auto"
                        data-bs-content="Click to download thread messages as a markdown file.">
                     <i class="bi bi-filetype-md"></i>
                 </button>
@@ -128,7 +96,7 @@
 
 
             <button class="btn btn-outline-danger ms-2" onclick="resetThread()"
-                   tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="auto"
+                   tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover" data-bs-placement="auto"
                    data-bs-content="Click to reset this thread.">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -205,7 +173,9 @@
         document.addEventListener("DOMContentLoaded", function () {
             var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
             var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
-                return new bootstrap.Popover(popoverTriggerEl);
+                return new bootstrap.Popover(popoverTriggerEl, {
+                    trigger: 'hover'
+                });
             });
 
             document.getElementById('question').addEventListener('keydown', function (e) {
@@ -306,23 +276,20 @@
                         <strong class="d-block">${assistant.name}</strong>
                         ${description}
                     </div>
-                    <i class="bi bi-info-circle assistant-info-icon" tabindex="0"></i>
-                    <div class="assistant-details" style="display:none;">
-                        ${instructions}${model}${tools}
-                    </div>
+                    <i class="bi bi-info-circle assistant-info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="${instructions}${model}${tools}" data-html="true"></i>
                 `;
                 assistantElement.onclick = () => selectAssistant(assistant.id, assistant.name, assistantElement);
                 containerElement.appendChild(assistantElement);
 
-                // Initialize Tippy.js tooltips
-                tippy(assistantElement.querySelector('.assistant-info-icon'), {
-                    content: getTooltipContent(assistant.id, assistantElement.querySelector('.assistant-details').innerHTML),
-                    allowHTML: true,
-                    interactive: true,
-                    placement: 'auto',
-                    theme: 'light',
-                    appendTo: document.body
+                // Initialize Bootstrap Popover with html: true
+                const popover = new bootstrap.Popover(assistantElement.querySelector('.assistant-info-icon'), {
+                    html: true,
+                    trigger: 'hover'
                 });
+
+                // Set initial popover content
+                const isSelected = index === 0 ? '<p class="text-success"><i>Selected as your assistant.</i></p>' : '<p class="text-secondary"><i>Not selected. Click to select as your assistant.</i></p>';
+                popover.setContent({ '.popover-body': `${isSelected}${instructions}${model}${tools}` });
 
                 // Select the first assistant by default
                 if (index === 0) {
@@ -330,33 +297,31 @@
                 }
             });
 
-            containerElement.style.overflow = 'visible';
-        }
+            // Function to select an assistant
+            function selectAssistant(assistantId, assistantName, element) {
+                selectedAssistantId = assistantId;
+                selectedAssistantName = assistantName;
 
-        function getTooltipContent(assistantId, details) {
-            const isSelected = assistantId === selectedAssistantId ? '<p class="text-success"><i>Selected as your assistant.</i></p>' : '<p class="text-secondary"><i>Not selected. Click to select as your assistant.</i></p>';
-            return `${isSelected}${details}`;
-        }
+                // Set the selected assistant element as active
+                const assistantElements = document.querySelectorAll('.list-group-item');
+                assistantElements.forEach(el => el.classList.remove('active'));
+                element.classList.add('active');
 
-        // Function to select an assistant
-        function selectAssistant(assistantId, assistantName, element) {
-            selectedAssistantId = assistantId;
-            selectedAssistantName = assistantName;
+                // Update Bootstrap Popovers to reflect the selected status
+                assistantElements.forEach(el => {
+                    const assistantInfoIcon = el.querySelector('.assistant-info-icon');
+                    if (assistantInfoIcon) {
+                        const popover = bootstrap.Popover.getInstance(assistantInfoIcon);
+                        if (popover) {
+                            const instructions = assistantInfoIcon.getAttribute('data-bs-content');
+                            const isSelected = el.dataset.id === selectedAssistantId ? '<p class="text-success"><i>Selected as your assistant.</i></p>' : '<p class="text-secondary"><i>Not selected. Click to select as your assistant.</i></p>';
+                            popover.setContent({ '.popover-body': `${isSelected}${instructions}` });
+                        }
+                    }
+                });
 
-            // Set the selected assistant element as active
-            const assistantElements = document.querySelectorAll('.list-group-item');
-            assistantElements.forEach(el => el.classList.remove('active'));
-            element.classList.add('active');
-
-            // Update tooltips to reflect the selected status
-            assistantElements.forEach(el => {
-                const assistantInfoIcon = el.querySelector('.assistant-info-icon');
-                if (assistantInfoIcon && assistantInfoIcon._tippy) {
-                    assistantInfoIcon._tippy.setContent(getTooltipContent(el.dataset.id, el.querySelector('.assistant-details').innerHTML));
-                }
-            });
-
-            console.log(`Selected Assistant ID: ${assistantId}`);
+                console.log(`Selected Assistant ID: ${assistantId}`);
+            }
         }
 
         // Function to scroll to the bottom of the conversation
