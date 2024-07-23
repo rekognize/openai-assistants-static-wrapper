@@ -534,7 +534,6 @@
         }
 
         async function fetchThreadFiles(projectKey, fileIds) {
-            const fileListElement = document.getElementById('file-list');
             const promises = fileIds.map(fileId => {
                 const url = `https://api.openai.com/v1/files/${fileId}`;
                 const options = {
@@ -559,12 +558,9 @@
 
                 if (validFiles.length > 0) {
                     validFiles.forEach(file => displayFile(file));
-                } else {
-                    fileListElement.innerHTML += '<li class="list-group-item text-muted">No files available.</li>';
                 }
             } catch (error) {
                 console.error('Error fetching files:', error);
-                fileListElement.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
             }
         }
 
@@ -599,7 +595,7 @@
                         await fetchThreadFiles(projectKey, fileIds);
                     } else {
                         loadingFilesElement.style.display = 'none';
-                        fileList.innerHTML += '<li class="list-group-item text-muted">No files available.</li>';
+                        fileList.innerHTML += '<li id="no-files" class="list-group-item text-muted">No files available.</li>';
                     }
                 } else {
                     console.error('Error fetching thread files:', threadId);
@@ -947,6 +943,12 @@
         // File uploads
 
         function displayFile(file) {
+            let noFilesElement = document.getElementById('no-files');
+            // Remove no-files
+            if (noFilesElement) {
+                noFilesElement.remove();
+            }
+
             const fileList = document.getElementById('file-list');
             const fileItem = document.createElement('li');
             fileItem.className = 'list-group-item';
