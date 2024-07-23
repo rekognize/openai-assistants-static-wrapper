@@ -339,7 +339,7 @@
                                 : '';
                         }
 
-                        const instructions = assistant.instructions ? `<p><strong>Instructions:</strong><p></p> ${assistant.instructions}</p>` : '';
+                        const instructions = assistant.instructions ? `<p><strong>Instructions:</strong> ${assistant.instructions}</p>` : '';
                         const model = assistant.model ? `<p><strong>Model:</strong> ${assistant.model}</p>` : '';
                         const tools = assistant.tools && assistant.tools.length > 0 ?
                             `<p><strong>Tools:</strong> ${assistant.tools.map(tool => tool.type).join(', ')}</p>` : '';
@@ -569,8 +569,15 @@
         }
 
         async function listThreadFiles(projectKey, threadId) {
-            const fileList = document.getElementById('file-list')
-            const loadingFilesElement = document.getElementById('loading-files');
+            const fileList = document.getElementById('file-list');
+            let loadingFilesElement = document.getElementById('loading-files');
+            // Create mock loading-files element for reset thread
+            if (!loadingFilesElement) {
+                loadingFilesElement = document.createElement('li');
+                loadingFilesElement.id = 'loading-files';
+                fileList.appendChild(loadingFilesElement);
+            }
+
             loadingFilesElement.style.display = 'block'; // Show loading-files
 
             const url = `https://api.openai.com/v1/threads/${threadId}`;
@@ -591,16 +598,19 @@
                     if (fileIds.length > 0) {
                         await fetchThreadFiles(projectKey, fileIds);
                     } else {
-                         fileList.innerHTML += '<li class="list-group-item text-muted">No files available.</li>';
+                        loadingFilesElement.style.display = 'none';
+                        fileList.innerHTML += '<li class="list-group-item text-muted">No files available.</li>';
                     }
                 } else {
                     console.error('Error fetching thread files:', threadId);
+                    loadingFilesElement.style.display = 'none';
                     fileList.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
                 }
             } catch (error) {
                 console.error('Error fetching thread files:', error);
+                loadingFilesElement.style.display = 'none';
                 fileList.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
-            }  finally {
+            } finally {
                 loadingFilesElement.style.display = 'none'; // Hide loading-files after fetching files
             }
         }
@@ -827,9 +837,16 @@
 
             // Clear the conversation area and show a message
             document.getElementById('conversation').innerHTML = noMessagesDiv;
+
             // Create a new thread
             threadId = await createThread(projectKey);
             sessionStorage.setItem('threadId', threadId);
+
+            // Reset thread files
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = `
+                <li class="list-group-item list-group-item-light text-dark">Data files</li>
+            `;
 
             // Clear any stored messages and reinitialize the session
             await initializeSession();
@@ -933,7 +950,7 @@
             const fileList = document.getElementById('file-list');
             const fileItem = document.createElement('li');
             fileItem.className = 'list-group-item';
-            fileItem.innerHTML = `<small>${file.filename} (${file.bytes} bytes)<\small>`;
+            fileItem.innerHTML = `<small>${file.filename} (${file.bytes} bytes)</small>`;
             fileList.appendChild(fileItem);
         }
 
