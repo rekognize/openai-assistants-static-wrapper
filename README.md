@@ -2,6 +2,10 @@
 
 This project is a static web application that wraps around the OpenAI Assistants API, allowing users to interact with various AI assistants.
 
+> ⚠️ **Warning**
+>
+> This app exposes the OpenAI secret key. It is intended only for internal testing of the assistants' behavior and tuning. Do not use in production!
+
 ## Features
 
 - List and select AI assistants
