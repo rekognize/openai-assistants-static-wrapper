@@ -66,6 +66,12 @@
         .hidden {
             display: none;
         }
+        .toast-container {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1055;
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -170,7 +176,7 @@
 
 <!-- Toast Messages Container -->
 <div aria-live="polite" aria-atomic="true" class="position-relative">
-    <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-4">
+    <div id="toast-container" class="toast-container">
     </div>
 </div>
 
