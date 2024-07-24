@@ -900,6 +900,12 @@
         function downloadMessagesMd() {
             const conversationElement = document.getElementById('conversation');
             const messages = conversationElement.querySelectorAll('.message');
+
+            if (messages.length === 0) {
+                showToast('No messages in the thread.', 'primary');
+                return;
+            }
+
             let markdownContent = '';
 
             messages.forEach(message => {
@@ -936,6 +942,11 @@
 
             const conversationElement = document.getElementById('conversation');
             const messages = conversationElement.querySelectorAll('.message');
+
+            if (messages.length === 0) {
+                showToast('No messages in the thread.', 'primary');
+                return;
+            }
 
             const docChildren = [];
 
