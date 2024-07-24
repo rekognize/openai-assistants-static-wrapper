@@ -360,6 +360,7 @@
             await updateAssistantTooltips(projectKey, assistants);
 
             console.log(`Selected Assistant ID: ${assistantId}`);
+            showToast('Assistant selected successfully.', 'primary', `${selectedAssistantName}`);
         }
 
         // Function to update assistant tooltips with file information
