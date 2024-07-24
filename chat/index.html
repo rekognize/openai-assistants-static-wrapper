@@ -168,6 +168,20 @@
     </div>
 </nav>
 
+<div aria-live="polite" aria-atomic="true" class="position-relative">
+    <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-4">
+    </div>
+</div>
+
+<div id="toast-template" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+        <div class="toast-body">
+            <!-- Toast message will go here -->
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+</div>
+
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
     <script>
@@ -247,6 +261,7 @@
             } catch (error) {
                 console.error('Error fetching assistants:', error);
                 document.getElementById('assistants-list').innerText = `Failed to fetch assistants: ${error.message}`;
+                showToast('Failed to fetch assistants.', 'danger');
             }
         }
 
@@ -434,7 +449,7 @@
 
             // Check if the textarea is not empty before submitting
             if (!selectedAssistantId || !questionText) {
-                alert('Please select an assistant and enter a question.');
+                showToast('Please select an assistant and enter a question.', 'primary');
                 return;
             }
 
@@ -530,7 +545,7 @@
                 return data.id;
             } catch (error) {
                 console.error('Error creating thread:', error);
-                alert('Failed to create thread.');
+                showToast('Failed to create thread.', 'danger');
             }
         }
 
@@ -602,11 +617,13 @@
                     console.error('Error fetching thread files:', threadId);
                     loadingFilesElement.style.display = 'none';
                     fileList.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
+                    showToast('Failed to fetch thread files.', 'danger');
                 }
             } catch (error) {
                 console.error('Error fetching thread files:', error);
                 loadingFilesElement.style.display = 'none';
                 fileList.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
+                showToast('Failed to fetch thread files.', 'danger');
             } finally {
                 loadingFilesElement.style.display = 'none'; // Hide loading-files after fetching files
             }
@@ -659,7 +676,7 @@
                 return data;
             } catch (error) {
                 console.error('Error adding question to thread:', error);
-                alert('Failed to add question to thread.');
+                showToast('Failed to add question to thread.', 'danger');
             }
         }
 
@@ -712,7 +729,7 @@
                 }
             } catch (error) {
                 console.error('Error creating run:', error);
-                alert('Failed to get response from assistant.');
+                showToast('Failed to get response from assistant.', 'danger');
                 displayMessage(selectedAssistantName, 'An error occurred while fetching the response.');
 
                 document.getElementById('submit-btn').disabled = false;
@@ -778,12 +795,40 @@
                     }
                 } else {
                     // Handle the case when there are no messages
-                    console.log('no messages');
+                    console.log('No messages in this thread yet.');
                     conversationElement.innerHTML = noMessagesDiv;
                 }
             } catch (error) {
                 console.error('Error fetching thread messages:', error);
                 conversationElement.innerHTML = '<p>Failed to load conversation. Please try again later.</p>';
+
+                showToast('Error fetching thread messages.', 'danger');
+            }
+        }
+
+        // Function to fetch file object
+        async function fetchFileData(projectKey, fileId) {
+            const url = `https://api.openai.com/v1/files/${fileId}`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2'
+                }
+            };
+
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    return await response.json();
+                } else {
+                    console.error('Error fetching file:', fileId);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching file:', fileId, error);
+                return null;
             }
         }
 
@@ -847,6 +892,8 @@
 
             // Clear any stored messages and reinitialize the session
             await initializeSession();
+
+            showToast('New thread created successfully.', 'success');
         }
 
         // Function to download all messages as a markdown file
@@ -879,6 +926,8 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+
+            showToast('Markdown file downloaded successfully.', 'success');
         }
 
         // Function to download all messages as a DOCX file
@@ -938,6 +987,41 @@
                 document.body.removeChild(a);
             }).catch(err => {
                 console.error('Error creating DOCX file:', err);
+                showToast('Error creating DOCX file.', 'danger');
+            });
+            showToast('Word file downloaded successfully.', 'success');
+        }
+
+        // Function to show toast messages
+        function showToast(message, type='primary', details='') {
+            const toastContainer = document.getElementById('toast-container');
+            const toastTemplate = document.getElementById('toast-template');
+
+            // Clone the toast template
+            const newToast = toastTemplate.cloneNode(true);
+            newToast.id = ''; // Clear the ID to avoid duplicate IDs
+
+            // Set the toast type
+            newToast.classList.remove('text-bg-primary', 'text-bg-success', 'text-bg-danger', 'text-bg-warning', 'text-bg-info');
+            newToast.classList.add(`text-bg-${type}`);
+
+            // Set the toast message
+            const toastBody = newToast.querySelector('.toast-body');
+            toastBody.innerHTML = `<strong>${message}</strong>`;
+            if (details) {
+                toastBody.innerHTML += `<br><small>${details}</small>`;
+            }
+
+            // Append the new toast to the container
+            toastContainer.appendChild(newToast);
+
+            // Initialize the new toast
+            const bootstrapToast = new bootstrap.Toast(newToast);
+            bootstrapToast.show();
+
+            // Remove the toast from the DOM after it hides
+            newToast.addEventListener('hidden.bs.toast', () => {
+                newToast.remove();
             });
         }
 
@@ -1002,42 +1086,19 @@
                     if (response.ok) {
                         const data = await response.json();
                         console.log('File uploaded successfully:', data);
+
                         const fileId = data.id;
                         await addFilesToThread(projectKey, threadId, [fileId]);
                         displayFile(data);
+                        showToast('File uploaded successfully.', 'success', `${file.name}`);
                     } else {
-                        console.error('Error uploading file:', response.statusText);
-                        alert('Failed to upload file.');
+                        console.error('Error uploading file:', file);
+                        showToast('Failed to upload file.', 'danger', `${file.name}`);
                     }
                 } catch (error) {
                     console.error('Error uploading file:', error);
-                    alert('Failed to upload file.');
+                    showToast('Failed to upload file.', 'danger', `${file.name}`);
                 }
-            }
-        }
-
-        async function fetchFileData(projectKey, fileId) {
-            const url = `https://api.openai.com/v1/files/${fileId}`;
-            const options = {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${projectKey}`,
-                    'Content-Type': 'application/json',
-                    'OpenAI-Beta': 'assistants=v2'
-                }
-            };
-
-            try {
-                const response = await fetch(url, options);
-                if (response.ok) {
-                    return await response.json();
-                } else {
-                    console.error('Error fetching file:', fileId);
-                    return null;
-                }
-            } catch (error) {
-                console.error('Error fetching file:', fileId, error);
-                return null;
             }
         }
 
@@ -1095,15 +1156,12 @@
                 const response = await fetch(url, options);
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('Thread updated with files:', data);
-                    // alert('Files successfully uploaded and added to the thread.');
+                    console.log('Thread updated with file:', data);
                 } else {
-                    console.error('Error updating thread with files.');
-                    alert('Failed to add files to the thread.');
+                    console.error('Error updating thread with file.');
                 }
             } catch (error) {
-                console.error('Error updating thread with files:', error);
-                alert('Failed to add files to the thread.');
+                console.error('Error updating thread with file:', error);
             }
         }
 
