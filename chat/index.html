@@ -23,10 +23,18 @@
         }
         #question-form {
             display: flex;
+            align-items: flex-end;
         }
         #question {
             flex-grow: 1;
             margin-right: 10px;
+            resize: none;
+            overflow: auto;
+        }
+        #submit-btn {
+            flex-shrink: 0;
+            width: 80px;
+            height: 62px;
         }
         #loading-conversation {
             text-align: center;
@@ -219,6 +227,11 @@
                 });
             });
 
+            document.getElementById('question').addEventListener('input', function () {
+                this.style.height = 'auto'; // Reset the height
+                this.style.height = this.scrollHeight + 'px'; // Set the height to match content
+            });
+
             document.getElementById('question').addEventListener('keydown', function (e) {
                 if (e.key === 'Enter') {
                     if (e.shiftKey) {
@@ -360,7 +373,7 @@
             await updateAssistantTooltips(projectKey, assistants);
 
             console.log(`Selected Assistant ID: ${assistantId}`);
-            showToast('Assistant selected successfully.', 'primary', `${selectedAssistantName}`);
+            showToast('Assistant selected successfully.', 'success', `${selectedAssistantName}`);
         }
 
         // Function to update assistant tooltips with file information
@@ -569,6 +582,7 @@
                 const response = await fetch(url, options);
                 const data = await response.json();
                 console.log('Thread created:', data);
+                showToast('New thread created successfully.', 'success');
                 return data.id;
             } catch (error) {
                 console.error('Error creating thread:', error);
@@ -928,8 +942,6 @@
 
                 // Clear any stored messages and reinitialize the session
                 await initializeSession();
-
-                showToast('New thread created successfully.', 'success');
             };
         }
 
