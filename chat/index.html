@@ -126,7 +126,7 @@
             </div>
 
             <ul id="file-list" class="list-group mt-3">
-                <li class="list-group-item list-group-item-light text-dark">Data files</li>
+                <li id="data-files-header" class="list-group-item list-group-item-light text-dark">Data files</li>
                 <li id="loading-files" class="list-group-item text-center" style="display: none;">
                     <span class="spinner-border spinner-border-sm" role="status">
                         <span class="visually-hidden">Loading...</span>
@@ -887,7 +887,7 @@
             // Reset thread files
             const fileList = document.getElementById('file-list');
             fileList.innerHTML = `
-                <li class="list-group-item list-group-item-light text-dark">Data files</li>
+                <li id="data-files-header" class="list-group-item list-group-item-light text-dark">Data files</li>
             `;
 
             // Clear any stored messages and reinitialize the session
@@ -1038,7 +1038,14 @@
             const fileItem = document.createElement('li');
             fileItem.className = 'list-group-item';
             fileItem.innerHTML = `<small>${file.filename} (${file.bytes} bytes)</small>`;
-            fileList.appendChild(fileItem);
+
+            // Insert the new file item after the header
+            const headerElement = document.getElementById('data-files-header');
+            if (headerElement) {
+                headerElement.insertAdjacentElement('afterend', fileItem);
+            } else {
+                fileList.appendChild(fileItem);
+            }
         }
 
         document.getElementById('dropZone').addEventListener('click', function () {
