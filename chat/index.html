@@ -8,7 +8,6 @@
 
     <link href="https://fastly.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <link href="https://fastly.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" integrity="sha512-WvVX1YO12zmsvTpUQV8s7ZU98DnkaAokcciMZJfnNWyNzm7//QRV61t4aEr0WdIa4pe854QHLTV302vH92FSMw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
         body {
@@ -52,22 +51,25 @@
             background-color: #052c65;
             border-color: #052c65;
         }
-        .dropzone {
+        #dropZone {
             border: 2px dotted #cfe2ff;
             border-radius: 8px;
             background: #f8f9fa;
             padding: 20px;
             text-align: center;
-        }
-        .dropzone .dz-message {
-            font-weight: normal;
             color: #007bff;
+            cursor: pointer;
+        }
+        #dropZone.hover {
+            background-color: #cfe2ff;
+        }
+        .hidden {
+            display: none;
         }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js'></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js" integrity="sha512-oQq8uth41D+gIH/NJvSJvVB85MFk1eWpMK6glnkg6I7EdMqC1XVkW7RxLheXwmFdG03qScCM7gKS/Cx3FYt7Tg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 </head>
 <body>
@@ -132,9 +134,8 @@
                 </li>
             </ul>
 
-            <div id="dropzone" class="dropzone mt-3">
-                <div class="dz-message">Drop your data files here to upload.</div>
-            </div>
+            <div id="dropZone" class="mt-3">Drop your data files here.</div>
+            <input id="dataFiles" type="file" multiple class="hidden" />
 
         </div>
 
@@ -339,7 +340,7 @@
                                 : '';
                         }
 
-                        const instructions = assistant.instructions ? `<p><strong>Instructions:</strong><p></p> ${assistant.instructions}</p>` : '';
+                        const instructions = assistant.instructions ? `<p><strong>Instructions:</strong> ${assistant.instructions}</p>` : '';
                         const model = assistant.model ? `<p><strong>Model:</strong> ${assistant.model}</p>` : '';
                         const tools = assistant.tools && assistant.tools.length > 0 ?
                             `<p><strong>Tools:</strong> ${assistant.tools.map(tool => tool.type).join(', ')}</p>` : '';
@@ -534,7 +535,6 @@
         }
 
         async function fetchThreadFiles(projectKey, fileIds) {
-            const fileListElement = document.getElementById('file-list');
             const promises = fileIds.map(fileId => {
                 const url = `https://api.openai.com/v1/files/${fileId}`;
                 const options = {
@@ -559,18 +559,22 @@
 
                 if (validFiles.length > 0) {
                     validFiles.forEach(file => displayFile(file));
-                } else {
-                    fileListElement.innerHTML += '<li class="list-group-item text-muted">No files available.</li>';
                 }
             } catch (error) {
                 console.error('Error fetching files:', error);
-                fileListElement.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
             }
         }
 
         async function listThreadFiles(projectKey, threadId) {
-            const fileList = document.getElementById('file-list')
-            const loadingFilesElement = document.getElementById('loading-files');
+            const fileList = document.getElementById('file-list');
+            let loadingFilesElement = document.getElementById('loading-files');
+            // Create mock loading-files element for reset thread
+            if (!loadingFilesElement) {
+                loadingFilesElement = document.createElement('li');
+                loadingFilesElement.id = 'loading-files';
+                fileList.appendChild(loadingFilesElement);
+            }
+
             loadingFilesElement.style.display = 'block'; // Show loading-files
 
             const url = `https://api.openai.com/v1/threads/${threadId}`;
@@ -591,16 +595,19 @@
                     if (fileIds.length > 0) {
                         await fetchThreadFiles(projectKey, fileIds);
                     } else {
-                         fileList.innerHTML += '<li class="list-group-item text-muted">No files available.</li>';
+                        loadingFilesElement.style.display = 'none';
+                        fileList.innerHTML += '<li id="no-files" class="list-group-item text-muted">No files available.</li>';
                     }
                 } else {
                     console.error('Error fetching thread files:', threadId);
+                    loadingFilesElement.style.display = 'none';
                     fileList.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
                 }
             } catch (error) {
                 console.error('Error fetching thread files:', error);
+                loadingFilesElement.style.display = 'none';
                 fileList.innerHTML += '<li class="list-group-item text-muted">Failed to load files.</li>';
-            }  finally {
+            } finally {
                 loadingFilesElement.style.display = 'none'; // Hide loading-files after fetching files
             }
         }
@@ -827,9 +834,16 @@
 
             // Clear the conversation area and show a message
             document.getElementById('conversation').innerHTML = noMessagesDiv;
+
             // Create a new thread
             threadId = await createThread(projectKey);
             sessionStorage.setItem('threadId', threadId);
+
+            // Reset thread files
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = `
+                <li class="list-group-item list-group-item-light text-dark">Data files</li>
+            `;
 
             // Clear any stored messages and reinitialize the session
             await initializeSession();
@@ -930,40 +944,77 @@
         // File uploads
 
         function displayFile(file) {
+            let noFilesElement = document.getElementById('no-files');
+            // Remove no-files
+            if (noFilesElement) {
+                noFilesElement.remove();
+            }
+
             const fileList = document.getElementById('file-list');
             const fileItem = document.createElement('li');
             fileItem.className = 'list-group-item';
-            fileItem.innerHTML = `<small>${file.filename} (${file.bytes} bytes)<\small>`;
+            fileItem.innerHTML = `<small>${file.filename} (${file.bytes} bytes)</small>`;
             fileList.appendChild(fileItem);
         }
 
-        Dropzone.autoDiscover = false; // Prevent Dropzone from auto discovering this element
-
-        const dropzone = new Dropzone('#dropzone', {
-            url: 'https://api.openai.com/v1/files',
-            paramName: 'file', // The name that will be used to transfer the file
-            maxFilesize: 512, // Maximum file size in MB
-            maxFiles: 20, // Maximum number of files
-            headers: {
-                'Authorization': `Bearer ${getProjectKeyFromURL()}`,
-            },
-            init: function() {
-                this.on('sending', function(file, xhr, formData) {
-                    formData.append('purpose', 'assistants');
-                });
-                this.on('success', function(file, response) {
-                    console.log('File uploaded successfully:', response);
-                    // Handle the response and add the file to the thread
-                    const fileId = response.id;
-                    addFilesToThread(getProjectKeyFromURL(), threadId, [fileId]);
-                    displayFile(response);
-                });
-                this.on('error', function(file, errorMessage) {
-                    console.error('Error uploading file:', errorMessage);
-                    alert('Failed to upload file.');
-                });
-            }
+        document.getElementById('dropZone').addEventListener('click', function () {
+            document.getElementById('dataFiles').click();
         });
+
+        document.getElementById('dropZone').addEventListener('dragover', function (e) {
+            e.preventDefault();
+            this.classList.add('hover');
+        });
+
+        document.getElementById('dropZone').addEventListener('dragleave', function () {
+            this.classList.remove('hover');
+        });
+
+        document.getElementById('dropZone').addEventListener('drop', function (e) {
+            e.preventDefault();
+            this.classList.remove('hover');
+            uploadFiles(e.dataTransfer.files);
+        });
+
+        document.getElementById('dataFiles').addEventListener('change', function (e) {
+            uploadFiles(e.target.files);
+        });
+
+        async function uploadFiles(files) {
+            const projectKey = getProjectKeyFromURL();
+            const url = 'https://api.openai.com/v1/files';
+            const fileList = Array.from(files);
+
+            for (const file of fileList) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('purpose', 'assistants');
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${projectKey}`,
+                        },
+                        body: formData,
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('File uploaded successfully:', data);
+                        const fileId = data.id;
+                        await addFilesToThread(projectKey, threadId, [fileId]);
+                        displayFile(data);
+                    } else {
+                        console.error('Error uploading file:', response.statusText);
+                        alert('Failed to upload file.');
+                    }
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    alert('Failed to upload file.');
+                }
+            }
+        }
 
         async function fetchFileData(projectKey, fileId) {
             const url = `https://api.openai.com/v1/files/${fileId}`;
@@ -1045,7 +1096,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     console.log('Thread updated with files:', data);
-                    alert('Files successfully uploaded and added to the thread.');
+                    // alert('Files successfully uploaded and added to the thread.');
                 } else {
                     console.error('Error updating thread with files.');
                     alert('Failed to add files to the thread.');
