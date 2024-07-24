@@ -168,6 +168,7 @@
     </div>
 </nav>
 
+<!-- Toast Messages Container -->
 <div aria-live="polite" aria-atomic="true" class="position-relative">
     <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-4">
     </div>
@@ -179,6 +180,25 @@
             <!-- Toast message will go here -->
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+</div>
+
+<!-- Reset Thread Confirmation Modal -->
+<div class="modal fade" id="resetThreadModal" tabindex="-1" aria-labelledby="resetThreadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetThreadModalLabel">Confirm Reset Thread</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to reset this thread? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmResetButton">Reset Thread</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -877,23 +897,33 @@
         async function resetThread() {
             const projectKey = getProjectKeyFromURL();
 
-            // Clear the conversation area and show a message
-            document.getElementById('conversation').innerHTML = noMessagesDiv;
+            // Show the confirmation modal
+            const resetThreadModal = new bootstrap.Modal(document.getElementById('resetThreadModal'));
+            resetThreadModal.show();
 
-            // Create a new thread
-            threadId = await createThread(projectKey);
-            sessionStorage.setItem('threadId', threadId);
+            // Handle the confirmation button click
+            document.getElementById('confirmResetButton').onclick = async () => {
+                // Clear the conversation area and show a message
+                document.getElementById('conversation').innerHTML = noMessagesDiv;
 
-            // Reset thread files
-            const fileList = document.getElementById('file-list');
-            fileList.innerHTML = `
-                <li id="data-files-header" class="list-group-item list-group-item-light text-dark">Data files</li>
-            `;
+                // Hide the modal
+                resetThreadModal.hide();
 
-            // Clear any stored messages and reinitialize the session
-            await initializeSession();
+                // Create a new thread
+                threadId = await createThread(projectKey);
+                sessionStorage.setItem('threadId', threadId);
 
-            showToast('New thread created successfully.', 'success');
+                // Reset thread files
+                const fileList = document.getElementById('file-list');
+                fileList.innerHTML = `
+                    <li id="data-files-header" class="list-group-item list-group-item-light text-dark">Data files</li>
+                `;
+
+                // Clear any stored messages and reinitialize the session
+                await initializeSession();
+
+                showToast('New thread created successfully.', 'success');
+            };
         }
 
         // Function to download all messages as a markdown file
