@@ -55,6 +55,15 @@
             margin-left: 10px;
             cursor: pointer;
         }
+        .user-message {
+            width: fit-content;
+            max-width: 80%;
+            min-width: 20%;
+            margin-left: auto;
+        }
+        .assistant-message {
+            width: 100%;
+        }
         .list-group-item.active {
             background-color: #052c65;
             border-color: #052c65;
@@ -227,12 +236,14 @@
                 });
             });
 
-            document.getElementById('question').addEventListener('input', function () {
+            var questionTextarea = document.getElementById('question');
+
+            questionTextarea.addEventListener('input', function () {
                 this.style.height = 'auto'; // Reset the height
-                this.style.height = this.scrollHeight + 'px'; // Set the height to match content
+                this.style.height = this.scrollHeight + 2 + 'px'; // Set the height to match content
             });
 
-            document.getElementById('question').addEventListener('keydown', function (e) {
+            questionTextarea.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter') {
                     if (e.shiftKey) {
                         // Allow new line if Shift key is pressed
@@ -485,11 +496,18 @@
         // Function to submit a question
         async function submitQuestion() {
             const projectKey = getProjectKeyFromURL();
-            const questionText = document.getElementById('question').value.trim();
+            const questionTextarea = document.getElementById('question');
+            const questionText = questionTextarea.value.trim();
 
-            // Check if the textarea is not empty before submitting
-            if (!selectedAssistantId || !questionText) {
-                showToast('Please select an assistant and enter a question.', 'primary');
+            // Reset textarea height
+            questionTextarea.style.height = 'auto';
+
+            // Check assistant and if the textarea is not empty before submitting
+            if (!selectedAssistantId) {
+                showToast('Please select an assistant.', 'primary');
+                return;
+            } else if (!questionText) {
+                showToast('Please enter a question.', 'primary');
                 return;
             }
 
@@ -508,7 +526,8 @@
 
             await addQuestionToThread(projectKey, questionText);
 
-            document.getElementById('question').value = '';
+            // Reset textarea question
+            questionTextarea.value = '';
 
             // Create an empty assistant response element
             const assistantResponseElement = renderAssistantMessageElement(selectedAssistantName, '');
@@ -525,7 +544,7 @@
 
         function renderUserMessageElement(text) {
             const messageElement = document.createElement('div');
-            messageElement.className = 'message user-message offset-2 alert alert-secondary mb-3';
+            messageElement.className = 'message user-message alert alert-secondary border-0 mb-3';
             messageElement.innerHTML = `${text}`;
             return messageElement;
         }
@@ -534,7 +553,7 @@
             const messageElement = document.createElement('div');
             messageElement.className = 'message assistant-message alert alert-light mb-3';
             messageElement.innerHTML = `
-                <h6 class="alert-heading">${assistantName}</h6>
+                <h6 class="alert-heading"><strong>${assistantName}</strong></h6>
                 <div class="message-body">${marked.parse(text)}</div>
             `;
             return messageElement;
@@ -718,6 +737,10 @@
             } catch (error) {
                 console.error('Error adding question to thread:', error);
                 showToast('Failed to add question to thread.', 'danger');
+
+                const submitButton = document.getElementById('submit-btn');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Submit';
             }
         }
 
@@ -773,8 +796,9 @@
                 showToast('Failed to get response from assistant.', 'danger');
                 displayMessage(selectedAssistantName, 'An error occurred while fetching the response.');
 
-                document.getElementById('submit-btn').disabled = false;
-                document.getElementById('submit-btn').innerHTML = 'Submit';
+                const submitButton = document.getElementById('submit-btn');
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Submit';
             }
         }
 
