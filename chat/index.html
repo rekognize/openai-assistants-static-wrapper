@@ -545,7 +545,7 @@
         function renderUserMessageElement(text) {
             const messageElement = document.createElement('div');
             messageElement.className = 'message user-message alert alert-secondary border-0 mb-3';
-            messageElement.innerHTML = `${text}`;
+            messageElement.innerHTML = `<div style="white-space: pre-wrap;">${text}</div>`;
             return messageElement;
         }
 
