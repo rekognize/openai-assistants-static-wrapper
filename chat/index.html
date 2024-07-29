@@ -764,7 +764,8 @@
             try {
                 const runResponse = await fetch(runUrl, runOptions);
                 const decoder = new TextDecoder('utf-8');
-                let fullContent = '';
+                let currentMessageContent = ''; // Buffer for current message content
+                let isFirstMessage = true; // Flag to check if it's the first message
 
                 for await (const chunk of runResponse.body) {
                     const content = decoder.decode(chunk, { stream: true });
@@ -784,9 +785,25 @@
                         const deltaContent = data.delta.content[0];
                         if (deltaContent.type === 'text') {
                             let delta = deltaContent.text.value;
-                            fullContent += delta;
-                            responseTextElement.innerHTML = marked.parse(fullContent);
+                            currentMessageContent += delta;
+                            responseTextElement.innerHTML = marked.parse(currentMessageContent);
                         }
+                    } else if (event === 'thread.message.created') {
+                        // Check if it's the first message to avoid duplicating the response element
+                        if (!isFirstMessage) {
+                            // Initialize new message buffer
+                            currentMessageContent = '';
+                            const assistantResponseTextElement = renderAssistantMessageElement(selectedAssistantName, '');
+                            document.getElementById('conversation').appendChild(assistantResponseTextElement);
+
+                            responseTextElement = assistantResponseTextElement.querySelector('.message-body');
+                        } else {
+                            isFirstMessage = false;
+                        }
+                    } else if (event === 'thread.message.completed') {
+                        // Finalize the message
+                        responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                        currentMessageContent = ''; // Reset the buffer for the next message
                     }
 
                     scrollToBottom();
