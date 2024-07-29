@@ -808,7 +808,8 @@
                                     isFirstMessage = false;
                                 }
                             } else if (event === 'thread.message.completed') {
-                                // Finalize the message
+                                // Finalize the message with annotations
+                                currentMessageContent = await processAnnotations(currentMessageContent, data.content[0].text.annotations, projectKey);
                                 responseTextElement.innerHTML = marked.parse(currentMessageContent);
                                 currentMessageContent = ''; // Reset the buffer for the next message
                             }
@@ -861,25 +862,7 @@
                         const sender = message.role === 'user' ? 'user' : assistantDictionary[message.assistant_id];
                         let content = message.content[0].text.value;
 
-                        const annotations = message.content[0].text.annotations;
-                        for (let index = 0; index < annotations.length; index++) {
-                            const annotation = annotations[index];
-                            if (annotation.file_citation) {
-                                const fileCitation = annotation.file_citation;
-                                try {
-                                    const citedFile = await fetchFileData(projectKey, fileCitation.file_id);
-                                    const fileInfo = `(${citedFile.filename})`;
-                                    content = content.replace(annotation.text, ` [${index + 1}] ${fileInfo}`);
-                                } catch (error) {
-                                    console.error(`File with id ${fileCitation.file_id} not found:`, error);
-                                    content = content.replace(annotation.text, ' (Reference file is not available)');
-                                }
-                            } else if (annotation.file_path) {
-                                const filePath = annotation.file_path;
-                                const downloadLink = `download-url/${filePath.file_id}`; // TODO Add download function and link
-                                content = content.replace(annotation.text, downloadLink);
-                            }
-                        }
+                        content = await processAnnotations(content, message.content[0].text.annotations, projectKey);
 
                         prependMessage(sender, content);
                     }
@@ -894,6 +877,29 @@
 
                 showToast('Error fetching thread messages.', 'danger');
             }
+        }
+
+        // Function to process annotations in the content
+        async function processAnnotations(content, annotations, projectKey) {
+            for (let index = 0; index < annotations.length; index++) {
+                const annotation = annotations[index];
+                if (annotation.file_citation) {
+                    const fileCitation = annotation.file_citation;
+                    try {
+                        const citedFile = await fetchFileData(projectKey, fileCitation.file_id);
+                        const fileInfo = `(${citedFile.filename})`;
+                        content = content.replace(annotation.text, ` [${index + 1}] ${fileInfo}`);
+                    } catch (error) {
+                        console.error(`File with id ${fileCitation.file_id} not found:`, error);
+                        content = content.replace(annotation.text, ' (Reference file is not available)');
+                    }
+                } else if (annotation.file_path) {
+                    const filePath = annotation.file_path;
+                    const downloadLink = `download-url/${filePath.file_id}`; // TODO #1 Add download function and link
+                    content = content.replace(annotation.text, downloadLink);
+                }
+            }
+            return content;
         }
 
         // Function to fetch file object
