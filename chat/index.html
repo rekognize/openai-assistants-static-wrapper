@@ -770,44 +770,51 @@
                 for await (const chunk of runResponse.body) {
                     const content = decoder.decode(chunk, { stream: true });
                     const lines = content.toString().split('\n').filter(line => line.trim() !== '');
-                    const event = lines[0].replace(/^event: /, '');
+                    let event;
                     let data;
 
-                    console.log(event);
-                    try {
-                        console.log(JSON.parse(lines[1].replace(/^data: /, '')));
-                    } catch {
-                        console.log('Cannot parse');
-                    }
-
-                    if (event === 'thread.message.delta') {
-                        data = JSON.parse(lines[1].replace(/^data: /, ''));
-                        const deltaContent = data.delta.content[0];
-                        if (deltaContent.type === 'text') {
-                            let delta = deltaContent.text.value;
-                            currentMessageContent += delta;
-                            responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            event = line.replace('event: ', '');
+                            console.log(event);
                         }
-                    } else if (event === 'thread.message.created') {
-                        // Check if it's the first message to avoid duplicating the response element
-                        if (!isFirstMessage) {
-                            // Initialize new message buffer
-                            currentMessageContent = '';
-                            const assistantResponseTextElement = renderAssistantMessageElement(selectedAssistantName, '');
-                            document.getElementById('conversation').appendChild(assistantResponseTextElement);
+                        if (line.startsWith('data: ')) {
+                            const dataLine = line.replace('data: ', '');
+                            try {
+                                data = JSON.parse(dataLine);
+                                console.log(data);
+                            } catch (error) {
+                                console.log('Cannot parse:', dataLine);
+                                continue; // Skip this line and continue with the next one
+                            }
 
-                            responseTextElement = assistantResponseTextElement.querySelector('.message-body');
-                        } else {
-                            isFirstMessage = false;
+                            if (event === 'thread.message.delta') {
+                                const deltaContent = data.delta.content[0];
+                                if (deltaContent.type === 'text') {
+                                    const delta = deltaContent.text.value;
+                                    currentMessageContent += delta;
+                                    responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                }
+                            } else if (event === 'thread.message.created') {
+                                // Check if it's the first message to avoid duplicating the response element
+                                if (!isFirstMessage) {
+                                    // Initialize new message buffer
+                                    currentMessageContent = '';
+                                    const assistantResponseTextElement = renderAssistantMessageElement(selectedAssistantName, '');
+                                    document.getElementById('conversation').appendChild(assistantResponseTextElement);
+
+                                    responseTextElement = assistantResponseTextElement.querySelector('.message-body');
+                                } else {
+                                    isFirstMessage = false;
+                                }
+                            } else if (event === 'thread.message.completed') {
+                                // Finalize the message
+                                responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                currentMessageContent = ''; // Reset the buffer for the next message
+                            }
                         }
-                    } else if (event === 'thread.message.completed') {
-                        // Finalize the message
-                        responseTextElement.innerHTML = marked.parse(currentMessageContent);
-                        currentMessageContent = ''; // Reset the buffer for the next message
                     }
-
                     scrollToBottom();
-
                 }
             } catch (error) {
                 console.error('Error creating run:', error);
