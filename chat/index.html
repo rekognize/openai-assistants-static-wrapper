@@ -764,33 +764,58 @@
             try {
                 const runResponse = await fetch(runUrl, runOptions);
                 const decoder = new TextDecoder('utf-8');
-                let fullContent = '';
+                let currentMessageContent = ''; // Buffer for current message content
+                let isFirstMessage = true; // Flag to check if it's the first message
 
                 for await (const chunk of runResponse.body) {
                     const content = decoder.decode(chunk, { stream: true });
                     const lines = content.toString().split('\n').filter(line => line.trim() !== '');
-                    const event = lines[0].replace(/^event: /, '');
+                    let event;
                     let data;
 
-                    console.log(event);
-                    try {
-                        console.log(JSON.parse(lines[1].replace(/^data: /, '')));
-                    } catch {
-                        console.log('Cannot parse');
-                    }
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            event = line.replace('event: ', '');
+                            console.log(event);
+                        }
+                        if (line.startsWith('data: ')) {
+                            const dataLine = line.replace('data: ', '');
+                            try {
+                                data = JSON.parse(dataLine);
+                                console.log(data);
+                            } catch (error) {
+                                console.log('Cannot parse:', dataLine);
+                                continue; // Skip this line and continue with the next one
+                            }
 
-                    if (event === 'thread.message.delta') {
-                        data = JSON.parse(lines[1].replace(/^data: /, ''));
-                        const deltaContent = data.delta.content[0];
-                        if (deltaContent.type === 'text') {
-                            let delta = deltaContent.text.value;
-                            fullContent += delta;
-                            responseTextElement.innerHTML = marked.parse(fullContent);
+                            if (event === 'thread.message.delta') {
+                                const deltaContent = data.delta.content[0];
+                                if (deltaContent.type === 'text') {
+                                    const delta = deltaContent.text.value;
+                                    currentMessageContent += delta;
+                                    responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                }
+                            } else if (event === 'thread.message.created') {
+                                // Check if it's the first message to avoid duplicating the response element
+                                if (!isFirstMessage) {
+                                    // Initialize new message buffer
+                                    currentMessageContent = '';
+                                    const assistantResponseTextElement = renderAssistantMessageElement(selectedAssistantName, '');
+                                    document.getElementById('conversation').appendChild(assistantResponseTextElement);
+
+                                    responseTextElement = assistantResponseTextElement.querySelector('.message-body');
+                                } else {
+                                    isFirstMessage = false;
+                                }
+                            } else if (event === 'thread.message.completed') {
+                                // Finalize the message with annotations
+                                currentMessageContent = await processAnnotations(currentMessageContent, data.content[0].text.annotations, projectKey);
+                                responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                currentMessageContent = ''; // Reset the buffer for the next message
+                            }
                         }
                     }
-
                     scrollToBottom();
-
                 }
             } catch (error) {
                 console.error('Error creating run:', error);
@@ -837,25 +862,7 @@
                         const sender = message.role === 'user' ? 'user' : assistantDictionary[message.assistant_id];
                         let content = message.content[0].text.value;
 
-                        const annotations = message.content[0].text.annotations;
-                        for (let index = 0; index < annotations.length; index++) {
-                            const annotation = annotations[index];
-                            if (annotation.file_citation) {
-                                const fileCitation = annotation.file_citation;
-                                try {
-                                    const citedFile = await fetchFileData(projectKey, fileCitation.file_id);
-                                    const fileInfo = `(${citedFile.filename})`;
-                                    content = content.replace(annotation.text, ` [${index + 1}] ${fileInfo}`);
-                                } catch (error) {
-                                    console.error(`File with id ${fileCitation.file_id} not found:`, error);
-                                    content = content.replace(annotation.text, ' (Reference file is not available)');
-                                }
-                            } else if (annotation.file_path) {
-                                const filePath = annotation.file_path;
-                                const downloadLink = `download-url/${filePath.file_id}`; // TODO Add download function and link
-                                content = content.replace(annotation.text, downloadLink);
-                            }
-                        }
+                        content = await processAnnotations(content, message.content[0].text.annotations, projectKey);
 
                         prependMessage(sender, content);
                     }
@@ -870,6 +877,29 @@
 
                 showToast('Error fetching thread messages.', 'danger');
             }
+        }
+
+        // Function to process annotations in the content
+        async function processAnnotations(content, annotations, projectKey) {
+            for (let index = 0; index < annotations.length; index++) {
+                const annotation = annotations[index];
+                if (annotation.file_citation) {
+                    const fileCitation = annotation.file_citation;
+                    try {
+                        const citedFile = await fetchFileData(projectKey, fileCitation.file_id);
+                        const fileInfo = `(${citedFile.filename})`;
+                        content = content.replace(annotation.text, ` [${index + 1}] ${fileInfo}`);
+                    } catch (error) {
+                        console.error(`File with id ${fileCitation.file_id} not found:`, error);
+                        content = content.replace(annotation.text, ' (Reference file is not available)');
+                    }
+                } else if (annotation.file_path) {
+                    const filePath = annotation.file_path;
+                    const downloadLink = `download-url/${filePath.file_id}`; // TODO #1 Add download function and link
+                    content = content.replace(annotation.text, downloadLink);
+                }
+            }
+            return content;
         }
 
         // Function to fetch file object
