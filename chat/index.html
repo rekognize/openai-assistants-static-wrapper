@@ -1025,7 +1025,7 @@
                     return;
                 }
 
-                markdownContent += `**${sender}**\n${content}\n\n`;
+                markdownContent += `**${sender}**\n\n${content}\n\n`;
             });
 
             const blob = new Blob([markdownContent], { type: 'text/markdown' });
@@ -1072,15 +1072,19 @@
                     bold: true,
                 });
 
-                const contentRun = new TextRun({
-                    text: content,
-                });
+                const contentRuns = content.split('\n').map(line => new TextRun({ text: line, break: 1 }));
 
-                const paragraph = new Paragraph({
-                    children: [senderRun, new TextRun("\n"), contentRun, new TextRun("\n\n")],
-                });
-
-                docChildren.push(paragraph);
+                docChildren.push(
+                    new Paragraph({
+                        children: [senderRun],
+                    }),
+                    new Paragraph({
+                        children: contentRuns,
+                    }),
+                    new Paragraph({ // Empty paragraph to add a blank line
+                        children: [new TextRun("\n")],
+                    })
+                );
             });
 
             const doc = new Document({
