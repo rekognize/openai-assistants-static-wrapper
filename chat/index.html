@@ -867,8 +867,12 @@
                                 textContent = await processAnnotations(textContent, content.text.annotations, projectKey);
                                 combinedContent += `<p>${textContent}</p>`;
                             } else if (content.type === "image_file") {
-                                const { downloadUrl, filename } = await fetchFileContent(projectKey, content.image_file.file_id);
-                                combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download file</a></p>`;
+                                const { downloadUrl, filename, error } = await fetchFileContent(projectKey, content.image_file.file_id);
+                                if (error) {
+                                    combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">${error}</a></p>`;
+                                } else {
+                                    combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download ${filename}</a></p>`;
+                                }
                             }
                         }
                         prependMessage(sender, combinedContent);
@@ -903,9 +907,14 @@
                 } else if (annotation.file_path) {
                     const filePath = annotation.file_path;
                     try {
-                        const { downloadUrl, filename } = await fetchFileContent(projectKey, filePath.file_id);
-                        const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${filename}</a>`;
-                        content = content.replace(annotation.text, fileLink);
+                        const { downloadUrl, filename, error } = await fetchFileContent(projectKey, filePath.file_id);
+                        if (error) {
+                            const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${error}</a>`;
+                            content = content.replace(annotation.text, fileLink);
+                        } else {
+                            const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${filename}</a>`;
+                            content = content.replace(annotation.text, fileLink);
+                        }
                     } catch (error) {
                         console.error(`File with id ${filePath.file_id} not found:`, error);
                         content = content.replace(annotation.text, ' (Reference file is not available)');
@@ -941,12 +950,14 @@
                     throw new Error('Error fetching file content');
                 }
                 const blob = await contentResponse.blob();
+
+                // Create a download URL
                 const downloadUrl = URL.createObjectURL(blob);
 
-                return { downloadUrl, filename };
+                return { downloadUrl, filename, error: null };
             } catch (error) {
                 console.error('Error fetching file content:', error);
-                return { downloadUrl: '#', filename: 'Error fetching file' };
+                return { downloadUrl: '#', filename: null, error: 'Error fetching file content' };
             }
         }
 
