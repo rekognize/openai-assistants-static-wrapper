@@ -561,13 +561,13 @@
         }
 
         // Function to prepend a message when displaying the initial thread
-        function prependMessage(sender, text) {
+        function prependMessage(sender, content) {
             const conversationElement = document.getElementById('conversation');
             let messageElement;
             if (sender === 'user') {
-                messageElement = renderUserMessageElement(text);
+                messageElement = renderUserMessageElement(content);
             } else {
-                messageElement = renderAssistantMessageElement(sender, text);
+                messageElement = renderAssistantMessageElement(sender, content);
             }
             conversationElement.insertBefore(messageElement, conversationElement.firstChild);
             scrollToBottom();
@@ -860,11 +860,18 @@
                     const messages = data.data;
                     for (const message of messages) {
                         const sender = message.role === 'user' ? 'user' : assistantDictionary[message.assistant_id];
-                        let content = message.content[0].text.value;
-
-                        content = await processAnnotations(content, message.content[0].text.annotations, projectKey);
-
-                        prependMessage(sender, content);
+                        let combinedContent = '';
+                        for (const content of message.content) {
+                            if (content.type === "text") {
+                                let textContent = content.text.value;
+                                textContent = await processAnnotations(textContent, content.text.annotations, projectKey);
+                                combinedContent += `<p>${textContent}</p>`;
+                            } else if (content.type === "image_file") {
+                                const { downloadUrl, filename } = await fetchFileContent(projectKey, content.image_file.file_id);
+                                combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download file</a></p>`;
+                            }
+                        }
+                        prependMessage(sender, combinedContent);
                     }
                 } else {
                     // Handle the case when there are no messages
@@ -900,6 +907,41 @@
                 }
             }
             return content;
+        }
+
+        // Function to fetch the download link for a file with correct filename
+        async function fetchFileContent(projectKey, fileId) {
+            const metadataUrl = `https://api.openai.com/v1/files/${fileId}`;
+            const contentUrl = `https://api.openai.com/v1/files/${fileId}/content`;
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${projectKey}`
+                }
+            };
+
+            try {
+                // Fetch the file metadata to get the filename
+                const metadataResponse = await fetch(metadataUrl, options);
+                if (!metadataResponse.ok) {
+                    throw new Error('Error fetching file metadata');
+                }
+                const metadata = await metadataResponse.json();
+                const filename = metadata.filename;
+
+                // Fetch the file content
+                const contentResponse = await fetch(contentUrl, options);
+                if (!contentResponse.ok) {
+                    throw new Error('Error fetching file content');
+                }
+                const blob = await contentResponse.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+
+                return { downloadUrl, filename };
+            } catch (error) {
+                console.error('Error fetching file content:', error);
+                return { downloadUrl: '#', filename: 'Error fetching file' };
+            }
         }
 
         // Function to fetch file object
