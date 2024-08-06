@@ -902,8 +902,14 @@
                     }
                 } else if (annotation.file_path) {
                     const filePath = annotation.file_path;
-                    const downloadLink = `download-url/${filePath.file_id}`; // TODO #1 Add download function and link
-                    content = content.replace(annotation.text, downloadLink);
+                    try {
+                        const { downloadUrl, filename } = await fetchFileContent(projectKey, filePath.file_id);
+                        const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${filename}</a>`;
+                        content = content.replace(annotation.text, fileLink);
+                    } catch (error) {
+                        console.error(`File with id ${filePath.file_id} not found:`, error);
+                        content = content.replace(annotation.text, ' (Reference file is not available)');
+                    }
                 }
             }
             return content;
