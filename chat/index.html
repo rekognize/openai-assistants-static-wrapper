@@ -792,7 +792,9 @@
                                 const deltaContent = data.delta.content[0];
                                 if (deltaContent.type === 'text') {
                                     const delta = deltaContent.text.value;
-                                    currentMessageContent += delta;
+                                    if (delta !== undefined) { // Check for undefined
+                                        currentMessageContent += delta;
+                                    }
                                     responseTextElement.innerHTML = marked.parse(currentMessageContent);
                                 }
                             } else if (event === 'thread.message.created') {
