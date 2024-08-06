@@ -808,9 +808,21 @@
                                     isFirstMessage = false;
                                 }
                             } else if (event === 'thread.message.completed') {
-                                // Finalize the message with annotations
-                                currentMessageContent = await processAnnotations(currentMessageContent, data.content[0].text.annotations, projectKey);
-                                responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                for (const content of data.content) {
+                                    if (content.type === 'text') {
+                                        // Finalize the message with annotations
+                                        currentMessageContent = await processAnnotations(currentMessageContent, content.text.annotations, projectKey);
+                                        responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                    } else if (content.type === 'image_file') {
+                                        const { downloadUrl, filename, error } = await fetchFileContent(projectKey, content.image_file.file_id);
+                                        if (error) {
+                                            currentMessageContent += `<p>(${error})</p>`;
+                                        } else {
+                                            currentMessageContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download ${filename}</a></p>`;
+                                        }
+                                        responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                    }
+                                }
                                 currentMessageContent = ''; // Reset the buffer for the next message
                             }
                         }
@@ -861,7 +873,8 @@
                     for (const message of messages) {
                         const sender = message.role === 'user' ? 'user' : assistantDictionary[message.assistant_id];
                         let combinedContent = '';
-                        for (const content of message.content) {
+                        for (let i = message.content.length - 1; i >= 0; i--) {
+                            const content = message.content[i];
                             if (content.type === "text") {
                                 let textContent = content.text.value;
                                 textContent = await processAnnotations(textContent, content.text.annotations, projectKey);
@@ -869,7 +882,7 @@
                             } else if (content.type === "image_file") {
                                 const { downloadUrl, filename, error } = await fetchFileContent(projectKey, content.image_file.file_id);
                                 if (error) {
-                                    combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">${error}</a></p>`;
+                                    combinedContent += `<p>(${error})</p>`;
                                 } else {
                                     combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download ${filename}</a></p>`;
                                 }
@@ -909,7 +922,7 @@
                     try {
                         const { downloadUrl, filename, error } = await fetchFileContent(projectKey, filePath.file_id);
                         if (error) {
-                            const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${error}</a>`;
+                            const fileLink = `${error}`;
                             content = content.replace(annotation.text, fileLink);
                         } else {
                             const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${filename}</a>`;
