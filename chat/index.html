@@ -823,6 +823,9 @@
                                             currentMessageContent += `<p><img src="${downloadUrl}" alt="${filename}" style="max-width: 100%;"></p>`;
                                         }
                                         responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                    } else {
+                                        currentMessageContent += `<p>Unsupported content type: ${content.type}</p>`;
+                                        responseTextElement.innerHTML = marked.parse(currentMessageContent);
                                     }
                                 }
                                 currentMessageContent = ''; // Reset the buffer for the next message
@@ -888,6 +891,8 @@
                                 } else {
                                     combinedContent += `<p><img src="${downloadUrl}" alt="${filename}" style="max-width: 100%;"></p>`;
                                 }
+                            } else {
+                                combinedContent += `<p>Unsupported content type: ${content.type}</p>`;
                             }
                         }
                         prependMessage(sender, combinedContent);
