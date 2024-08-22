@@ -870,8 +870,11 @@
                                         if (error) {
                                             currentMessageContent += `<p>(${error})</p>`;
                                         } else {
-                                            currentMessageContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download ${filename}</a></p>`;
+                                            currentMessageContent += `<p><img src="${downloadUrl}" alt="${filename}" style="max-width: 100%;"></p>`;
                                         }
+                                        responseTextElement.innerHTML = marked.parse(currentMessageContent);
+                                    } else {
+                                        currentMessageContent += `<p>Unsupported content type: ${content.type}</p>`;
                                         responseTextElement.innerHTML = marked.parse(currentMessageContent);
                                     }
                                 }
@@ -936,8 +939,10 @@
                                 if (error) {
                                     combinedContent += `<p>(${error})</p>`;
                                 } else {
-                                    combinedContent += `<p><a href="${downloadUrl}" download="${filename}" target="_blank">Download ${filename}</a></p>`;
+                                    combinedContent += `<p><img src="${downloadUrl}" alt="${filename}" style="max-width: 100%;"></p>`;
                                 }
+                            } else {
+                                combinedContent += `<p>Unsupported content type: ${content.type}</p>`;
                             }
                         }
                         prependMessage(sender, combinedContent);
@@ -977,7 +982,7 @@
                             const fileLink = `${error}`;
                             content = content.replace(annotation.text, fileLink);
                         } else {
-                            const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank">${filename}</a>`;
+                            const fileLink = `<a href="${downloadUrl}" download="${filename}" target="_blank"><i class="bi bi-box-arrow-down"></i></a>`;
                             content = content.replace(annotation.text, fileLink);
                         }
                     } catch (error) {
@@ -1007,7 +1012,10 @@
                     throw new Error('Error fetching file metadata');
                 }
                 const metadata = await metadataResponse.json();
-                const filename = metadata.filename;
+                const filenameWithPath = metadata.filename;
+
+                // Extract the filename from the full path or use the filename directly if no path is present
+                const filename = filenameWithPath.split('/').pop();
 
                 // Fetch the file content
                 const contentResponse = await fetch(contentUrl, options);
